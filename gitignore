@@ -1,0 +1,16 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Personal data exports — never commit these
+capital_audit_*.json
+capital_audit_*.csv
+life_backup_*.json
+
+# Node (if you add tooling later)
+node_modules/

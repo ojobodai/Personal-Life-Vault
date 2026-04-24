@@ -228,10 +228,38 @@
 
         <div class="lg:col-span-7 space-y-5">
 
-            <!-- Asset Map + Monthly Spend by Wallet -->
+            <!-- Asset Map + Monthly Spend by Wallet — Donut Charts side by side -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div class="glass-card p-5"><h2 class="text-sm font-black mb-3">💰 Asset Map — Wallet Balances</h2><div id="asset-map-bars" class="space-y-3"></div></div>
-                <div class="glass-card p-5"><h2 class="text-sm font-black mb-3">📊 Monthly Spend by Wallet</h2><div id="wallet-month-spend" class="space-y-3"></div></div>
+                <!-- Wallet Balances Donut -->
+                <div class="glass-card p-5">
+                    <h2 class="text-sm font-black mb-3">💰 Asset Map — Wallet Balances</h2>
+                    <div class="flex items-center gap-4">
+                        <div class="donut-wrap flex-shrink-0">
+                            <svg id="asset-donut-svg" width="130" height="130" viewBox="0 0 130 130"></svg>
+                            <div class="donut-center">
+                                <p id="asset-donut-total" class="text-sm font-black text-white">₵0</p>
+                                <p class="text-[8px] text-slate-500">total</p>
+                            </div>
+                        </div>
+                        <div id="asset-donut-legend" class="flex-1 space-y-1.5 overflow-y-auto max-h-[130px] custom-scroll"></div>
+                    </div>
+                    <div id="asset-donut-empty" class="text-center py-6 text-slate-500 text-xs hidden">No wallet balances yet</div>
+                </div>
+                <!-- Monthly Spend by Wallet Donut -->
+                <div class="glass-card p-5">
+                    <h2 class="text-sm font-black mb-3">📊 Monthly Spend by Wallet</h2>
+                    <div class="flex items-center gap-4">
+                        <div class="donut-wrap flex-shrink-0">
+                            <svg id="spend-wallet-donut-svg" width="130" height="130" viewBox="0 0 130 130"></svg>
+                            <div class="donut-center">
+                                <p id="spend-wallet-donut-total" class="text-sm font-black text-white">₵0</p>
+                                <p class="text-[8px] text-slate-500">spent</p>
+                            </div>
+                        </div>
+                        <div id="spend-wallet-donut-legend" class="flex-1 space-y-1.5 overflow-y-auto max-h-[130px] custom-scroll"></div>
+                    </div>
+                    <div id="spend-wallet-donut-empty" class="text-center py-6 text-slate-500 text-xs hidden">No spending this month</div>
+                </div>
             </div>
 
             <!-- Spend Velocity Chart -->
@@ -243,7 +271,7 @@
             <!-- Outstanding Loans + Free Benefits -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div class="glass-card p-5"><div class="flex justify-between items-center mb-3"><h2 class="text-sm font-black">📋 Outstanding Loans</h2><span id="loans-total" class="text-xl font-black text-amber-400">₵0.00</span></div><div id="loans-list" class="space-y-2 max-h-52 overflow-y-auto custom-scroll"></div><div id="loans-empty" class="text-center py-6 text-slate-500 text-xs hidden">No outstanding loans</div></div>
-                <div class="glass-card p-5"><div class="flex justify-between items-center mb-3 flex-wrap gap-2"><h2 class="text-sm font-black">🎁 Free Benefits</h2><div class="flex gap-2"><span id="fb-week-total" class="text-xs font-bold text-teal-400">₵0</span><span id="fb-month-total" class="text-xs font-bold text-emerald-400">₵0</span><span id="fb-all-total" class="text-xs font-bold text-white">₵0</span></div></div>
+                <div class="glass-card p-5"><div class="flex justify-between items-center mb-3 flex-wrap gap-2"><h2 class="text-sm font-black">🎁 Free Benefits</h2><div class="flex gap-2 items-center"><span id="fb-month-label" class="text-[9px] text-slate-500 font-bold"></span><span id="fb-month-total" class="text-xs font-bold text-emerald-400">₵0</span><span id="fb-all-total" class="text-[9px] font-bold text-slate-400">All: ₵0</span></div></div>
                 <div class="flex flex-wrap gap-2 mb-3"><input type="text" id="fb-search" placeholder="Search..." class="input-field flex-1 text-sm"><select id="fb-cat-filter" onchange="renderFreeBenefits()" class="input-field w-28"><option value="">All</option><option value="Food">Food</option><option value="Transport">Transport</option><option value="Accommodation">Accommodation</option><option value="Other">Other</option></select></div>
                 <div class="flex flex-wrap gap-2 mb-3"><input type="text" id="fb-desc" placeholder="What did you get?" class="input-field flex-1"><input type="number" id="fb-amt" placeholder="Value" step="0.01" class="input-field w-28"><select id="fb-cat" class="input-field w-28"><option>Food</option><option>Transport</option><option>Accommodation</option><option>Other</option></select><input type="text" id="fb-from" placeholder="From" class="input-field w-28"><input type="date" id="fb-date" class="input-field w-32"><button onclick="logFreeBenefit()" class="btn-primary text-[10px] px-4">+ Log</button></div>
                 <div id="fb-list" class="space-y-1.5 max-h-48 overflow-y-auto custom-scroll"></div>
@@ -430,22 +458,50 @@ function renderMetrics() {
 function toggleMetrics() { metricsVisible = !metricsVisible; document.querySelectorAll('.metric-blur').forEach(el=>el.classList.toggle('revealed',metricsVisible)); }
 
 // ======================= ASSET MAP =======================
+const WALLET_COLORS = { MoMo:'#6366F1', Stanbic:'#818CF8', Ecobank:'#10B981', Cash:'#F59E0B', Other:'#0EA5E9' };
+
+function drawWalletDonut(svgId, legendId, totalId, emptyId, entries, labelKey, valKey, totalLabel) {
+    const svg = document.getElementById(svgId);
+    const legend = document.getElementById(legendId);
+    const totalEl = document.getElementById(totalId);
+    const emptyEl = document.getElementById(emptyId);
+    const positives = entries.filter(e=>e[valKey]>0);
+    const total = positives.reduce((s,e)=>s+e[valKey],0);
+    totalEl.innerText = total>0 ? fmt(total) : '₵0';
+    if(!positives.length){ svg.innerHTML=''; legend.innerHTML=''; emptyEl.classList.remove('hidden'); return; }
+    emptyEl.classList.add('hidden');
+    const cx=65,cy=65,r=50,ir=32;
+    let angle=-Math.PI/2, paths='';
+    positives.forEach((e,i)=>{
+        const color = WALLET_COLORS[e[labelKey]] || '#64748B';
+        const slice=(e[valKey]/total)*2*Math.PI;
+        const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+        const x2=cx+r*Math.cos(angle+slice),y2=cy+r*Math.sin(angle+slice);
+        const ix1=cx+ir*Math.cos(angle),iy1=cy+ir*Math.sin(angle);
+        const ix2=cx+ir*Math.cos(angle+slice),iy2=cy+ir*Math.sin(angle+slice);
+        const large=slice>Math.PI?1:0;
+        paths+=`<path d="M${ix1},${iy1} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} L${ix2},${iy2} A${ir},${ir} 0 ${large},0 ${ix1},${iy1}Z" fill="${color}" opacity="0.92"><title>${e[labelKey]}: ${fmt(e[valKey])}</title></path>`;
+        angle+=slice;
+    });
+    svg.innerHTML=paths;
+    legend.innerHTML=positives.map(e=>{
+        const color=WALLET_COLORS[e[labelKey]]||'#64748B';
+        const pct=((e[valKey]/total)*100).toFixed(0);
+        return `<div class="flex items-center gap-2"><span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span><span class="text-[10px] flex-1 truncate">${esc(e[labelKey])}</span><span class="text-[10px] font-bold text-slate-300">${pct}%</span></div>`;
+    }).join('');
+}
+
 function renderAssetMap() {
     const wallets = ['MoMo','Stanbic','Ecobank','Cash','Other'];
-    const colors = { MoMo:'#6366F1', Stanbic:'#818CF8', Ecobank:'#4F46E5', Cash:'#312E81', Other:'#0EA5E9' };
+    // Wallet balances donut (all time)
     const balances = wallets.map(w => ({ name: w, bal: db.filter(e=>e.wallet===w).reduce((s,e)=>{ if(e.type==='income'||e.type==='repay') return s+e.amt; if(e.type==='expense'||e.type==='lend') return s-e.amt; return s; },0) }));
-    const maxBal = Math.max(...balances.map(b=>Math.abs(b.bal)), 1);
-    const container = document.getElementById('asset-map-bars');
-    container.innerHTML = balances.map(w => {
-        const pct = (Math.abs(w.bal) / maxBal) * 100;
-        const isPositive = w.bal >= 0;
-        return `<div><div class="flex justify-between text-[10px] font-semibold mb-1"><span>${w.name}</span><span class="${isPositive ? 'text-white' : 'text-rose-400'}">${fmt(w.bal)}</span></div><div class="h-5 bg-white/10 rounded-full overflow-hidden"><div class="asset-bar h-full rounded-full transition-all duration-500" style="width: ${pct}%; background: ${colors[w.name]}; opacity: ${isPositive ? 1 : 0.5}"></div></div></div>`;
-    }).join('');
-    const m = viewDate.getMonth(), y = viewDate.getFullYear();
-    const monthly = db.filter(e=>{ const [ey,em]=e.date.split('-'); return parseInt(em)-1===m && parseInt(ey)===y; });
-    const spendByWallet = wallets.map(w=>({ name: w, spent: monthly.filter(e=>e.wallet===w&&e.type==='expense').reduce((s,e)=>s+e.amt,0) })).filter(w=>w.spent>0);
-    const maxSpend = Math.max(...spendByWallet.map(w=>w.spent),1);
-    document.getElementById('wallet-month-spend').innerHTML = spendByWallet.map(w=>`<div><div class="flex justify-between text-[10px] font-semibold mb-1"><span>${w.name}</span><span>${fmt(w.spent)}</span></div><div class="h-5 bg-white/10 rounded-full overflow-hidden"><div class="asset-bar h-full rounded-full transition-all duration-500" style="width: ${(w.spent/maxSpend)*100}%; background: ${colors[w.name]}"></div></div></div>`).join('');
+    drawWalletDonut('asset-donut-svg','asset-donut-legend','asset-donut-total','asset-donut-empty', balances.map(b=>({name:b.name,bal:b.bal})), 'name','bal','balance');
+
+    // Monthly spend by wallet donut
+    const m=viewDate.getMonth(), y=viewDate.getFullYear();
+    const monthly=db.filter(e=>{ const [ey,em]=e.date.split('-'); return parseInt(em)-1===m&&parseInt(ey)===y; });
+    const spendByWallet=wallets.map(w=>({ name:w, spent:monthly.filter(e=>e.wallet===w&&e.type==='expense'&&!e.isTransfer).reduce((s,e)=>s+e.amt,0) }));
+    drawWalletDonut('spend-wallet-donut-svg','spend-wallet-donut-legend','spend-wallet-donut-total','spend-wallet-donut-empty', spendByWallet.map(w=>({name:w.name,spent:w.spent})), 'name','spent','spent');
 }
 
 // ======================= SPEND VELOCITY =======================
@@ -591,17 +647,20 @@ function logFreeBenefit(){
     toast('Benefit logged');
 }
 function renderFreeBenefits(){
+    const m = viewDate.getMonth(), y = viewDate.getFullYear();
     const search = document.getElementById('fb-search')?.value.toLowerCase() || '';
     const filterCat = document.getElementById('fb-cat-filter')?.value || '';
-    let filtered = fbDb;
+    // Filter to current viewDate month
+    let filtered = fbDb.filter(x=>{ const [fy,fm]=x.date.split('-'); return parseInt(fm)-1===m && parseInt(fy)===y; });
     if(filterCat) filtered = filtered.filter(x=>x.cat===filterCat);
     if(search) filtered = filtered.filter(x=>x.desc.toLowerCase().includes(search)||(x.from||'').toLowerCase().includes(search));
-    const weekTotal = fbDb.filter(x=>{ const d=new Date(x.date); const now=new Date(); const weekAgo=new Date(now.setDate(now.getDate()-7)); return new Date(x.date)>=weekAgo; }).reduce((s,x)=>s+x.amt,0);
-    const monthTotal = fbDb.filter(x=>{ const [y,m]=x.date.split('-'); const now=new Date(); return parseInt(y)===now.getFullYear() && parseInt(m)-1===now.getMonth(); }).reduce((s,x)=>s+x.amt,0);
+    const monthTotal = fbDb.filter(x=>{ const [fy,fm]=x.date.split('-'); return parseInt(fm)-1===m && parseInt(fy)===y; }).reduce((s,x)=>s+x.amt,0);
     const allTotal = fbDb.reduce((s,x)=>s+x.amt,0);
-    document.getElementById('fb-week-total').innerHTML = fmt(weekTotal);
+    const monthName = viewDate.toLocaleString('default',{month:'long',year:'numeric'});
+    const monthLabelEl = document.getElementById('fb-month-label');
+    if(monthLabelEl) monthLabelEl.innerText = monthName;
     document.getElementById('fb-month-total').innerHTML = fmt(monthTotal);
-    document.getElementById('fb-all-total').innerHTML = fmt(allTotal);
+    document.getElementById('fb-all-total').innerHTML = 'All: ' + fmt(allTotal);
     const container = document.getElementById('fb-list');
     const empty = document.getElementById('fb-empty');
     if(!filtered.length){ container.innerHTML=''; empty.classList.remove('hidden'); return; }

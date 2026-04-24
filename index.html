@@ -541,7 +541,7 @@ function drawWalletDonut(svgId, legendId, totalId, emptyId, entries, labelKey, v
     legend.innerHTML=positives.map(e=>{
         const color=WALLET_COLORS[e[labelKey]]||'#64748B';
         const pct=((e[valKey]/total)*100).toFixed(0);
-        return `<div class="flex items-center gap-2"><span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span><span class="text-[10px] flex-1 truncate">${esc(e[labelKey])}</span><span class="text-[10px] font-bold text-slate-300">${pct}%</span></div>`;
+        return `<div class="flex items-center gap-2"><span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block"></span><span class="text-[10px] flex-1 truncate">${esc(e[labelKey])}</span><span class="text-[10px] font-bold text-slate-300">${fmt(e[valKey])}</span><span class="text-[9px] text-slate-500">${pct}%</span></div>`;
     }).join('');
 }
 
@@ -784,7 +784,7 @@ function renderCategoryChart(){
     // Legend
     legend.innerHTML = sorted.slice(0,8).map(([cat,val],i)=>{
         const pct = ((val/total)*100).toFixed(0);
-        return `<div class="flex items-center gap-2"><span style="width:8px;height:8px;border-radius:50%;background:${CAT_COLORS[i%CAT_COLORS.length]};flex-shrink:0;display:inline-block"></span><span class="text-[10px] flex-1 truncate">${esc(cat)}</span><span class="text-[10px] font-bold text-slate-300">${pct}%</span></div>`;
+        return `<div class="flex items-center gap-2"><span style="width:8px;height:8px;border-radius:50%;background:${CAT_COLORS[i%CAT_COLORS.length]};flex-shrink:0;display:inline-block"></span><span class="text-[10px] flex-1 truncate">${esc(cat)}</span><span class="text-[10px] font-bold text-slate-300">${fmt(val)}</span><span class="text-[9px] text-slate-500">${pct}%</span></div>`;
     }).join('');
 }
 
@@ -980,7 +980,7 @@ function renderFbDonut(){
         angle+=slice;
     });
     svg.innerHTML=paths;
-    legend.innerHTML=entries.map(([cat,val])=>`<div class="flex items-center gap-1.5"><span style="width:7px;height:7px;border-radius:50%;background:${FB_CAT_COLORS[cat]||'#64748B'};flex-shrink:0;display:inline-block"></span><span class="text-[9px] flex-1">${cat}</span><span class="text-[9px] font-bold text-slate-300">${((val/total)*100).toFixed(0)}%</span></div>`).join('');
+    legend.innerHTML=entries.map(([cat,val])=>`<div class="flex items-center gap-1.5"><span style="width:7px;height:7px;border-radius:50%;background:${FB_CAT_COLORS[cat]||'#64748B'};flex-shrink:0;display:inline-block"></span><span class="text-[9px] flex-1">${cat}</span><span class="text-[9px] font-bold text-slate-300">${fmt(val)}</span><span class="text-[9px] text-slate-500">${((val/total)*100).toFixed(0)}%</span></div>`).join('');
 }
 
 // ======================= OVERRIDE renderAll =======================

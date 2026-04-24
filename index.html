@@ -49,6 +49,24 @@
 
         .metrics-scroll { overflow-x: auto; white-space: nowrap; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
         .metrics-scroll .metric-card { display: inline-block; white-space: normal; vertical-align: top; min-width: 160px; }
+
+        /* Donut chart */
+        .donut-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+        .donut-center { position: absolute; text-align: center; pointer-events: none; }
+
+        /* Recurring / overdue badges */
+        .recurring-tag { background: rgba(99,102,241,0.15); color: #818CF8; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 30px; margin-left: 5px; }
+        .overdue-row { background: rgba(251,113,133,0.07) !important; border-left: 2px solid #FB7185; }
+        .overdue-tag { background: rgba(251,113,133,0.18); color: #FB7185; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 30px; margin-left: 5px; animation: pulse 1.8s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+
+        /* Goal tracker */
+        .goal-bar-track { background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; height: 10px; }
+        .goal-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+        .goal-card { background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.18); border-radius: 20px; padding: 14px; }
+
+        /* Transfer row style */
+        .transfer-tag { background: rgba(14,165,233,0.12); color: #38BDF8; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 30px; margin-left: 5px; }
     </style>
 </head>
 <body class="p-5 md:p-7">
@@ -73,8 +91,11 @@
                     <svg id="theme-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
                     <svg id="theme-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 </button>
-                <button onclick="exportData()" class="p-2.5 glass-card rounded-xl text-slate-400 hover:text-emerald-400 transition">
+                <button onclick="exportData()" title="Export JSON" class="p-2.5 glass-card rounded-xl text-slate-400 hover:text-emerald-400 transition">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                </button>
+                <button onclick="exportCSV()" title="Export CSV (Excel)" class="p-2.5 glass-card rounded-xl text-slate-400 hover:text-green-400 transition">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
                 </button>
                 <button onclick="openImportModal()" class="p-2.5 glass-card rounded-xl text-slate-400 hover:text-amber-400 transition">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
@@ -121,51 +142,91 @@
                 <button type="button" onclick="setTodayDate()" class="btn-secondary">Today</button>
                 <button type="button" onclick="openSplitModal()" class="btn-secondary text-[10px]">+ Split Transaction</button>
             </div>
-            <div id="transfer-destination-container" class="hidden"><select id="to-wallet" class="input-field w-48"><option>→ MoMo</option><option>→ Stanbic</option><option>→ Ecobank</option><option>→ Cash</option></select></div>
+            <div id="transfer-destination-container" class="hidden"><select id="to-wallet" class="input-field w-48"><option value="MoMo">→ MoMo</option><option value="Stanbic">→ Stanbic</option><option value="Ecobank">→ Ecobank</option><option value="Cash">→ Cash</option><option value="Other">→ Other</option></select></div>
             <div class="flex items-center gap-3"><input type="checkbox" id="is-recurring" class="accent-indigo-500"><label class="text-xs font-medium">Mark as Recurring</label><button type="submit" class="btn-primary ml-auto px-8">Save Record</button></div>
         </form>
+    </div>
+
+    <!-- ======================= LEDGER (full width, right after form) ======================= -->
+    <div class="glass-card p-3 flex flex-wrap gap-3 items-center justify-between">
+        <input type="text" id="search-bar" oninput="renderLedger()" placeholder="Search transactions..." class="input-field flex-1 min-w-[160px] text-sm">
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="setAuditTab('all')" id="tab-all" class="btn-secondary text-[10px] bg-indigo-500/20 border-indigo-500/40">All</button>
+            <button onclick="setAuditTab('income')" id="tab-income" class="btn-secondary text-[10px]">Income</button>
+            <button onclick="setAuditTab('expense')" id="tab-expense" class="btn-secondary text-[10px]">Expense</button>
+            <button onclick="setAuditTab('transfer')" id="tab-transfer" class="btn-secondary text-[10px]">Transfers</button>
+            <button onclick="setAuditTab('lend')" id="tab-lend" class="btn-secondary text-[10px]">Loans</button>
+        </div>
+        <div class="flex gap-1">
+            <button onclick="changeMonth(-1)" class="btn-secondary text-[10px]">←</button>
+            <span id="month-label" class="text-xs font-bold w-28 text-center">MONTH</span>
+            <button onclick="changeMonth(1)" id="month-fwd-btn" class="btn-secondary text-[10px]">→</button>
+            <button onclick="jumpToToday()" class="btn-secondary text-[10px] ml-1">Today</button>
+        </div>
+    </div>
+
+    <div class="glass-card overflow-hidden">
+        <div class="px-5 py-4 border-b border-white/10 flex justify-between items-center">
+            <span class="text-xs font-bold">📋 Transaction Ledger</span>
+            <span id="ledger-count" class="text-[10px] text-slate-500">— records</span>
+        </div>
+        <div class="ledger-table-container custom-scroll">
+            <table class="w-full text-sm">
+                <thead class="sticky top-0 bg-[#0F1322] z-10"><tr class="text-left text-[10px] font-bold text-slate-500 border-b border-white/10"><th class="px-4 py-3">Date</th><th class="px-3 py-3">Description</th><th class="px-3 py-3 text-right">Amount</th><th class="px-4 py-3"></th></tr></thead>
+                <tbody id="ledger-body"></tbody>
+            </table>
+            <div id="ledger-empty" class="py-12 text-center text-slate-600 text-sm hidden">No transactions found</div>
+        </div>
     </div>
 
     <!-- ======================= MAIN GRID ======================= -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         <div class="lg:col-span-5 space-y-5">
-            <!-- Reserved for future features -->
+
+            <!-- Category Breakdown Chart -->
+            <div class="glass-card p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <div><h2 class="text-sm font-black">🍩 Spending by Category</h2><p class="text-[9px] text-slate-500">Current month · expenses only</p></div>
+                    <select id="cat-chart-wallet" onchange="renderCategoryChart()" class="input-field text-[10px] w-28 py-1.5 px-2" style="border-radius:10px;padding:6px 10px">
+                        <option value="">All Wallets</option>
+                        <option>Cash</option><option>MoMo</option><option>Stanbic</option><option>Ecobank</option><option>Other</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="donut-wrap flex-shrink-0">
+                        <svg id="donut-svg" width="130" height="130" viewBox="0 0 130 130"></svg>
+                        <div class="donut-center">
+                            <p id="donut-total" class="text-sm font-black text-white">₵0</p>
+                            <p class="text-[8px] text-slate-500">total</p>
+                        </div>
+                    </div>
+                    <div id="cat-legend" class="flex-1 space-y-1.5 overflow-y-auto max-h-[130px] custom-scroll"></div>
+                </div>
+                <div id="cat-chart-empty" class="text-center py-6 text-slate-500 text-xs hidden">No expense data this month</div>
+            </div>
+
+            <!-- Savings Goal Tracker -->
+            <div class="glass-card p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-black">🎯 Savings Goals</h2>
+                    <button onclick="openGoalModal()" class="btn-secondary text-[9px] py-1 px-3">+ New Goal</button>
+                </div>
+                <div id="goals-list" class="space-y-3"></div>
+                <div id="goals-empty" class="text-center py-6 text-slate-500 text-xs">No goals yet — add one!</div>
+            </div>
+
+            <!-- Recurring Reminders -->
+            <div class="glass-card p-5">
+                <h2 class="text-sm font-black mb-3">🔄 Recurring Transactions</h2>
+                <p class="text-[9px] text-slate-500 mb-3">Entries marked recurring · overdue = not logged this month</p>
+                <div id="recurring-list" class="space-y-2"></div>
+                <div id="recurring-empty" class="text-center py-4 text-slate-500 text-xs hidden">No recurring transactions</div>
+            </div>
+
         </div>
 
-        <div class="lg:col-span-12 space-y-5">
-
-            <!-- Controls + Month Navigation -->
-            <div class="glass-card p-3 flex flex-wrap gap-3 items-center justify-between">
-                <input type="text" id="search-bar" oninput="renderLedger()" placeholder="Search transactions..." class="input-field flex-1 min-w-[160px] text-sm">
-                <div class="flex gap-2">
-                    <button onclick="setAuditTab('all')" id="tab-all" class="btn-secondary text-[10px] bg-indigo-500/20 border-indigo-500/40">All</button>
-                    <button onclick="setAuditTab('income')" id="tab-income" class="btn-secondary text-[10px]">Income</button>
-                    <button onclick="setAuditTab('expense')" id="tab-expense" class="btn-secondary text-[10px]">Expense</button>
-                    <button onclick="setAuditTab('lend')" id="tab-lend" class="btn-secondary text-[10px]">Loans</button>
-                </div>
-                <div class="flex gap-1">
-                    <button onclick="changeMonth(-1)" class="btn-secondary text-[10px]">←</button>
-                    <span id="month-label" class="text-xs font-bold w-28 text-center">MONTH</span>
-                    <button onclick="changeMonth(1)" id="month-fwd-btn" class="btn-secondary text-[10px]">→</button>
-                    <button onclick="jumpToToday()" class="btn-secondary text-[10px] ml-1">Today</button>
-                </div>
-            </div>
-
-            <!-- Transaction Ledger -->
-            <div class="glass-card overflow-hidden">
-                <div class="px-5 py-4 border-b border-white/10 flex justify-between items-center">
-                    <span class="text-xs font-bold">📋 Transaction Ledger</span>
-                    <span id="ledger-count" class="text-[10px] text-slate-500">— records</span>
-                </div>
-                <div class="ledger-table-container custom-scroll">
-                    <table class="w-full text-sm">
-                        <thead class="sticky top-0 bg-[#0F1322] z-10"><tr class="text-left text-[10px] font-bold text-slate-500 border-b border-white/10"><th class="px-4 py-3">Date</th><th class="px-3 py-3">Description</th><th class="px-3 py-3 text-right">Amount</th><th class="px-4 py-3"></th>    </tr></thead>
-                        <tbody id="ledger-body"></tbody>
-                    </table>
-                    <div id="ledger-empty" class="py-12 text-center text-slate-600 text-sm hidden">No transactions found</div>
-                </div>
-            </div>
+        <div class="lg:col-span-7 space-y-5">
 
             <!-- Asset Map + Monthly Spend by Wallet -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -203,7 +264,24 @@
     </div>
 </div>
 
-<!-- Split Transaction Modal -->
+<!-- Savings Goal Modal -->
+<div id="goal-modal" class="modal-overlay hidden">
+    <div class="glass-card p-6 w-full max-w-sm animate-fade-in">
+        <h3 class="font-black mb-4">🎯 New Savings Goal</h3>
+        <div class="space-y-3">
+            <input type="text" id="goal-name" placeholder="Goal name (e.g. Emergency Fund)" class="input-field">
+            <input type="number" id="goal-target" step="0.01" placeholder="Target amount ₵" class="input-field">
+            <input type="date" id="goal-deadline" class="input-field">
+            <input type="number" id="goal-saved" step="0.01" placeholder="Already saved ₵ (optional)" class="input-field">
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="saveGoal()" class="btn-primary flex-1">Save Goal</button>
+            <button onclick="closeGoalModal()" class="btn-secondary flex-1">Cancel</button>
+        </div>
+    </div>
+</div>
+
+
 <div id="split-modal" class="modal-overlay hidden">
     <div class="glass-card p-6 w-full max-w-md animate-fade-in">
         <h3 class="font-black mb-3">Split Transaction</h3>
@@ -217,11 +295,11 @@
 <script>
 // ======================= CATEGORIES =======================
 const CATEGORIES = {
-    expense: ["Food & Dining","Transport","Utilities","Rent & Housing","Healthcare","Education","Clothing & Apparel","Entertainment","Airtime & Data","Gift to Someone","Household Supplies","Personal Care","Subscriptions","Business Expense","Bank Charges & Fees","Other"],
-    income: ["Salary / Wages","Side Hustle","Freelance","Business Revenue","Investment Return","Bank Interest","Gift Received","Rental Income","Government / Grant","Debt Recovery","Other"],
-    transfer: ["Savings Deposit","Wallet Move","Other"],
-    lend: ["Personal Loan Out","Business Loan Out","Other"],
-    repay: ["Loan Repayment Received","Debt Recovery","Other"]
+    expense: ["Food & Drinks","Transport","Housing & Utilities","Health","Communication","Clothing & Personal Care","Education","Entertainment","Family & Relationships","Offering & Tithes","Business Expense","Bank & Fees","Savings & Investment","Other Expense"],
+    income: ["Salary / Wages","Business Revenue","Freelance / Side Hustle","Investment Return","Gift Received","Debt Recovery","Other Income"],
+    transfer: ["Wallet Move"],
+    lend: ["Loan Given Out"],
+    repay: ["Loan Repayment Received"]
 };
 
 // ======================= DATA & STATE (EMPTY) =======================
@@ -245,7 +323,6 @@ const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 const fmt = n => '₵' + Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2});
 function toast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 2200); }
 function save() { localStorage.setItem(DB_KEY, JSON.stringify(db)); renderAll(); }
-function renderAll() { renderMetrics(); renderLedger(); renderLoans(); renderAssetMap(); renderSpendVelocity(); renderFreeBenefits(); updateMonthDisplay(); }
 
 function updateMonthDisplay() {
     const monthName = viewDate.toLocaleString('default',{month:'long',year:'numeric'});
@@ -448,7 +525,11 @@ function confirmSplitTransaction(){
 function renderLedger(){
     const m = viewDate.getMonth(), y = viewDate.getFullYear();
     let data = db.filter(e=>{ const [ey,em]=e.date.split('-'); return parseInt(em)-1===m && parseInt(ey)===y; });
-    if(auditTab !== 'all') data = data.filter(e=>e.type===auditTab);
+    if(auditTab === 'transfer'){
+        data = data.filter(e=>e.isTransfer);
+    } else if(auditTab !== 'all'){
+        data = data.filter(e=>e.type===auditTab && !e.isTransfer);
+    }
     const search = document.getElementById('search-bar').value.toLowerCase();
     if(search) data = data.filter(e=>e.desc.toLowerCase().includes(search)||(e.cat||'').toLowerCase().includes(search));
     data.sort((a,b)=>b.date.localeCompare(a.date));
@@ -457,10 +538,18 @@ function renderLedger(){
     document.getElementById('ledger-count').innerText = `${data.length} record${data.length!==1?'s':''}`;
     if(!data.length){ tbody.innerHTML=''; empty.classList.remove('hidden'); return; }
     empty.classList.add('hidden');
-    tbody.innerHTML = data.map(e=>`<tr class="ledger-row border-b border-white/5 hover:bg-white/5 transition"><td class="px-4 py-3 text-[11px]">${e.date.replace(/-/g,'/')}</td><td class="px-3 py-3"><div class="font-medium">${esc(e.desc)}</div><div class="text-[10px] text-slate-500">${e.cat||''}${e.isSplit?'<span class="split-tag ml-1">split</span>':''}</div></td><td class="px-3 py-3 text-right font-bold ${e.type==='income'?'text-emerald-400':'text-rose-400'}">${e.type==='expense'?'-':''}${fmt(e.amt)}</td><td class="px-4 py-3"><button onclick="deleteEntry(${e.id})" class="text-rose-400/60 hover:text-rose-400 text-xs">✕</button></td></tr>`).join('');
+    // Recurring overdue check: flagged recurring that hasn't been logged this month
+    const thisMonthLogged = new Set(db.filter(e=>{ const [ey,em]=e.date.split('-'); const now=new Date(); return parseInt(em)-1===now.getMonth()&&parseInt(ey)===now.getFullYear()&&e.isRecurring; }).map(e=>e.desc+'|'+e.wallet));
+    tbody.innerHTML = data.map(e=>{
+        const isOverdue = e.isRecurring && !thisMonthLogged.has(e.desc+'|'+e.wallet) && new Date(e.date).getMonth()!==new Date().getMonth();
+        const tags = (e.isSplit?'<span class="split-tag">split</span>':'')+(e.isTransfer?'<span class="transfer-tag">transfer</span>':'')+(e.isRecurring?'<span class="recurring-tag">recurring</span>':'')+(isOverdue?'<span class="overdue-tag">overdue</span>':'');
+        const amtColor = e.isTransfer?(e.type==='income'?'text-sky-400':'text-sky-300'):e.type==='income'?'text-emerald-400':'text-rose-400';
+        const amtPrefix = e.type==='expense'&&!e.isTransfer?'-':'';
+        return `<tr class="ledger-row border-b border-white/5 hover:bg-white/5 transition${isOverdue?' overdue-row':''}"><td class="px-4 py-3 text-[11px]">${e.date.replace(/-/g,'/')}</td><td class="px-3 py-3"><div class="font-medium">${esc(e.desc)}</div><div class="text-[10px] text-slate-500">${e.cat||''}${tags}</div></td><td class="px-3 py-3 text-right font-bold ${amtColor}">${amtPrefix}${fmt(e.amt)}</td><td class="px-4 py-3"><button onclick="deleteEntry(${e.id})" class="text-rose-400/60 hover:text-rose-400 text-xs">✕</button></td></tr>`;
+    }).join('');
 }
 function deleteEntry(id){ if(confirm('Delete this record?')){ db = db.filter(e=>e.id!==id); save(); toast('Deleted'); } }
-function setAuditTab(tab){ auditTab=tab; document.querySelectorAll('[id^="tab-"]').forEach(btn=>btn.classList.remove('bg-indigo-500/20','border-indigo-500/40')); document.getElementById(`tab-${tab}`).classList.add('bg-indigo-500/20','border-indigo-500/40'); renderLedger(); }
+function setAuditTab(tab){ auditTab=tab; document.querySelectorAll('[id^="tab-"]').forEach(btn=>btn.classList.remove('bg-indigo-500/20','border-indigo-500/40')); const el=document.getElementById(`tab-${tab}`); if(el) el.classList.add('bg-indigo-500/20','border-indigo-500/40'); renderLedger(); }
 function changeMonth(d){ viewDate.setMonth(viewDate.getMonth()+d); renderAll(); }
 function jumpToToday(){ viewDate = new Date(); renderAll(); }
 function setTodayDate(){ document.getElementById('date').value = new Date().toISOString().split('T')[0]; }
@@ -541,18 +630,185 @@ function handleFormSubmit(e){
     const desc = document.getElementById('desc').value.trim() || cat;
     const isRecurring = document.getElementById('is-recurring').checked;
     const charge = parseFloat(document.getElementById('charge').value)||0;
-    db.push({ id: Date.now(), desc, amt, date, type, wallet, cat, isRecurring });
-    if(charge>0) db.push({ id: Date.now()+999, desc: `Fee: ${desc}`, amt: charge, date, type: 'expense', wallet, cat: 'Bank Charges', isFee: true });
     if(type==='transfer'){
         const to = document.getElementById('to-wallet').value;
+        if(!to || to === wallet){ toast('Select a different destination wallet'); return; }
         db.push({ id: Date.now()+1, desc: `Transfer to ${to}`, amt, date, type: 'expense', wallet, cat: 'Transfer', isTransfer: true });
         db.push({ id: Date.now()+2, desc: `Transfer from ${wallet}`, amt, date, type: 'income', wallet: to, cat: 'Transfer', isTransfer: true });
+    } else {
+        db.push({ id: Date.now(), desc, amt, date, type, wallet, cat, isRecurring });
     }
+    if(charge>0) db.push({ id: Date.now()+999, desc: `Fee: ${desc}`, amt: charge, date, type: 'expense', wallet, cat: 'Bank Charges', isFee: true });
     save();
     document.getElementById('entry-form').reset();
     document.getElementById('date').value = new Date().toISOString().split('T')[0];
     toast('Saved');
 }
+
+// ======================= CSV EXPORT =======================
+function exportCSV(){
+    const headers = ['Date','Description','Category','Type','Wallet','Amount','Fee','Recurring'];
+    const rows = db.map(e => [
+        e.date,
+        '"' + (e.desc||'').replace(/"/g,'""') + '"',
+        '"' + (e.cat||'').replace(/"/g,'""') + '"',
+        e.type,
+        e.wallet,
+        e.type==='expense'||e.type==='lend' ? -e.amt : e.amt,
+        e.isFee ? e.amt : '',
+        e.isRecurring ? 'Yes' : ''
+    ]);
+    const csv = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `hub_finapp_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('CSV exported ✓');
+}
+
+// ======================= CATEGORY DONUT CHART =======================
+const CAT_COLORS = ['#6366F1','#8B5CF6','#EC4899','#F59E0B','#10B981','#3B82F6','#EF4444','#14B8A6','#F97316','#A855F7','#06B6D4','#84CC16','#E11D48','#0EA5E9','#D946EF','#64748B'];
+function renderCategoryChart(){
+    const m = viewDate.getMonth(), y = viewDate.getFullYear();
+    const walletFilter = document.getElementById('cat-chart-wallet')?.value || '';
+    let expenses = db.filter(e=>{
+        const [ey,em] = e.date.split('-');
+        return parseInt(em)-1===m && parseInt(ey)===y && e.type==='expense' && !e.isTransfer;
+    });
+    if(walletFilter) expenses = expenses.filter(e=>e.wallet===walletFilter);
+    const catMap = {};
+    expenses.forEach(e=>{ catMap[e.cat||'Other'] = (catMap[e.cat||'Other']||0)+e.amt; });
+    const sorted = Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+    const total = sorted.reduce((s,[,v])=>s+v,0);
+    const svg = document.getElementById('donut-svg');
+    const empty = document.getElementById('cat-chart-empty');
+    const legend = document.getElementById('cat-legend');
+    document.getElementById('donut-total').innerText = total>0 ? fmt(total) : '₵0';
+    if(!sorted.length){ svg.innerHTML=''; legend.innerHTML=''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    // Draw donut
+    const cx=65, cy=65, r=50, ir=32;
+    let angle = -Math.PI/2;
+    let paths = '';
+    sorted.forEach(([cat,val],i)=>{
+        const slice = (val/total)*2*Math.PI;
+        const x1=cx+r*Math.cos(angle), y1=cy+r*Math.sin(angle);
+        const x2=cx+r*Math.cos(angle+slice), y2=cy+r*Math.sin(angle+slice);
+        const ix1=cx+ir*Math.cos(angle), iy1=cy+ir*Math.sin(angle);
+        const ix2=cx+ir*Math.cos(angle+slice), iy2=cy+ir*Math.sin(angle+slice);
+        const large = slice>Math.PI?1:0;
+        const color = CAT_COLORS[i%CAT_COLORS.length];
+        paths += `<path d="M${ix1},${iy1} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} L${ix2},${iy2} A${ir},${ir} 0 ${large},0 ${ix1},${iy1}Z" fill="${color}" opacity="0.9"><title>${cat}: ${fmt(val)}</title></path>`;
+        angle += slice;
+    });
+    svg.innerHTML = paths;
+    // Legend
+    legend.innerHTML = sorted.slice(0,8).map(([cat,val],i)=>{
+        const pct = ((val/total)*100).toFixed(0);
+        return `<div class="flex items-center gap-2"><span style="width:8px;height:8px;border-radius:50%;background:${CAT_COLORS[i%CAT_COLORS.length]};flex-shrink:0;display:inline-block"></span><span class="text-[10px] flex-1 truncate">${esc(cat)}</span><span class="text-[10px] font-bold text-slate-300">${pct}%</span></div>`;
+    }).join('');
+}
+
+// ======================= SAVINGS GOALS =======================
+const GOALS_KEY = 'hub_finapp_goals';
+let goalsDb = JSON.parse(localStorage.getItem(GOALS_KEY)) || [];
+function saveGoalsDb(){ localStorage.setItem(GOALS_KEY, JSON.stringify(goalsDb)); }
+
+function openGoalModal(){
+    document.getElementById('goal-modal').classList.remove('hidden');
+    document.getElementById('goal-name').value='';
+    document.getElementById('goal-target').value='';
+    document.getElementById('goal-deadline').value='';
+    document.getElementById('goal-saved').value='';
+}
+function closeGoalModal(){ document.getElementById('goal-modal').classList.add('hidden'); }
+function saveGoal(){
+    const name = document.getElementById('goal-name').value.trim();
+    const target = parseFloat(document.getElementById('goal-target').value);
+    const deadline = document.getElementById('goal-deadline').value;
+    const saved = parseFloat(document.getElementById('goal-saved').value)||0;
+    if(!name||!target||target<=0){ toast('Enter goal name and target amount'); return; }
+    goalsDb.push({ id: Date.now(), name, target, deadline, saved });
+    saveGoalsDb();
+    closeGoalModal();
+    renderGoals();
+    toast('Goal added ✓');
+}
+function deleteGoal(id){ goalsDb = goalsDb.filter(g=>g.id!==id); saveGoalsDb(); renderGoals(); toast('Goal removed'); }
+function addToGoal(id){
+    const amt = parseFloat(prompt('How much to add to this goal? (₵)'));
+    if(!amt||amt<=0) return;
+    const g = goalsDb.find(g=>g.id===id);
+    if(g){ g.saved = (g.saved||0)+amt; saveGoalsDb(); renderGoals(); toast(`₵${amt.toFixed(2)} added to "${g.name}"`); }
+}
+function renderGoals(){
+    const container = document.getElementById('goals-list');
+    const empty = document.getElementById('goals-empty');
+    if(!goalsDb.length){ container.innerHTML=''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    container.innerHTML = goalsDb.map(g=>{
+        const pct = Math.min(100, ((g.saved||0)/g.target)*100);
+        const remaining = Math.max(0, g.target-(g.saved||0));
+        const color = pct>=100?'#10B981':pct>=50?'#6366F1':'#F59E0B';
+        const deadlineStr = g.deadline ? ` · Due ${g.deadline.replace(/-/g,'/')}` : '';
+        const daysLeft = g.deadline ? Math.ceil((new Date(g.deadline)-new Date())/86400000) : null;
+        const urgency = daysLeft!==null && daysLeft<=30 && pct<100 ? `<span class="overdue-tag">${daysLeft<=0?'Overdue':daysLeft+'d left'}</span>` : '';
+        return `<div class="goal-card">
+            <div class="flex justify-between items-start mb-2">
+                <div><p class="text-xs font-bold">${esc(g.name)}${urgency}</p><p class="text-[9px] text-slate-500">${fmt(g.saved||0)} of ${fmt(g.target)}${deadlineStr}</p></div>
+                <div class="flex gap-1">
+                    <button onclick="addToGoal(${g.id})" class="btn-secondary text-[9px] py-0.5 px-2">+Add</button>
+                    <button onclick="deleteGoal(${g.id})" class="text-rose-400/60 hover:text-rose-400 text-xs ml-1">✕</button>
+                </div>
+            </div>
+            <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+            <div class="flex justify-between mt-1"><span class="text-[9px] font-bold" style="color:${color}">${pct.toFixed(0)}%</span><span class="text-[9px] text-slate-500">${pct>=100?'🎉 Complete!':'₵'+remaining.toFixed(2)+' to go'}</span></div>
+        </div>`;
+    }).join('');
+}
+
+// ======================= RECURRING REMINDERS =======================
+function renderRecurring(){
+    const m = viewDate.getMonth(), y = viewDate.getFullYear();
+    const recurring = db.filter(e=>e.isRecurring && !e.isTransfer);
+    // Get unique recurring desc+wallet combos
+    const seen = new Set();
+    const unique = [];
+    recurring.forEach(e=>{ const key=e.desc+'|'+e.wallet; if(!seen.has(key)){ seen.add(key); unique.push(e); } });
+    // For each, check if logged this month
+    const thisMonthDescs = new Set(db.filter(e=>{ const [ey,em]=e.date.split('-'); return parseInt(em)-1===m&&parseInt(ey)===y&&e.isRecurring; }).map(e=>e.desc+'|'+e.wallet));
+    const container = document.getElementById('recurring-list');
+    const empty = document.getElementById('recurring-empty');
+    if(!unique.length){ container.innerHTML=''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    container.innerHTML = unique.map(e=>{
+        const key = e.desc+'|'+e.wallet;
+        const loggedThisMonth = thisMonthDescs.has(key);
+        return `<div class="flex items-center justify-between p-2.5 rounded-xl ${loggedThisMonth?'bg-white/5':'bg-rose-500/5 border border-rose-500/15'}">
+            <div>
+                <span class="text-xs font-semibold">${esc(e.desc)}</span>
+                ${loggedThisMonth?'<span class="recurring-tag">✓ logged</span>':'<span class="overdue-tag">due</span>'}
+                <p class="text-[9px] text-slate-500 mt-0.5">${e.wallet} · ${e.type} · ${fmt(e.amt)}</p>
+            </div>
+            ${!loggedThisMonth?`<button onclick="quickLogRecurring(${e.id})" class="btn-secondary text-[9px] py-1 px-2.5 flex-shrink-0">Log Now</button>`:''}
+        </div>`;
+    }).join('');
+}
+function quickLogRecurring(id){
+    const orig = db.find(e=>e.id===id);
+    if(!orig) return;
+    const today = new Date().toISOString().split('T')[0];
+    db.push({ id: Date.now(), desc: orig.desc, amt: orig.amt, date: today, type: orig.type, wallet: orig.wallet, cat: orig.cat, isRecurring: true });
+    save();
+    toast(`Logged: ${orig.desc}`);
+}
+
+// ======================= OVERRIDE renderAll =======================
+const _origRenderAll = renderAll;
+// Patch renderAll to also run new features
+function renderAll(){ renderMetrics(); renderLedger(); renderLoans(); renderAssetMap(); renderSpendVelocity(); renderFreeBenefits(); updateMonthDisplay(); renderCategoryChart(); renderGoals(); renderRecurring(); }
 
 // ======================= THEME =======================
 function toggleTheme(){

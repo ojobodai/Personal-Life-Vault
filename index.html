@@ -115,6 +115,7 @@
             <div class="glass-card p-5 metric-card cursor-pointer" style="min-width: 170px;" onclick="toggleMetrics()"><p id="surplus-label" class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Net Surplus</p><h3 id="monthly-delta" class="text-2xl font-black mt-1 metric-blur">₵0.00</h3></div>
             <div class="glass-card p-5 metric-card" style="min-width: 170px;"><div class="flex justify-between items-center"><p class="text-[10px] font-bold text-indigo-400">Efficiency</p><span id="retention-pct" class="text-sm font-black">0%</span></div><div class="h-2 bg-white/10 rounded-full mt-2 overflow-hidden"><div id="burn-bar" class="h-full bg-indigo-500 rounded-full" style="width:0%"></div></div></div>
             <div class="glass-card p-5 metric-card" style="min-width: 170px;"><p class="text-[10px] font-bold text-teal-400 uppercase tracking-wider">Free Benefits</p><h3 id="fb-month-metric" class="text-2xl font-black text-teal-300">₵0.00</h3></div>
+            <div class="glass-card p-5 metric-card cursor-pointer" style="min-width: 170px;" onclick="toggleMetrics()"><p class="text-[10px] font-bold text-violet-400 uppercase tracking-wider">Net Worth</p><h3 id="net-worth-metric" class="text-2xl font-black mt-1 metric-blur text-violet-300">₵0.00</h3><p class="text-[9px] text-slate-600 mt-1">wallets − loans</p></div>
         </div>
     </div>
 
@@ -135,12 +136,11 @@
                 <select id="cat-select" class="input-field"><option value="">— Select Category —</option></select>
                 <input type="text" id="desc" placeholder="Description" class="input-field" autocomplete="off" oninput="suggestDesc(this.value)" list="desc-suggestions"><datalist id="desc-suggestions"></datalist>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <input type="number" id="amt" step="0.01" placeholder="Amount ₵" class="input-field" required>
-                <input type="number" id="charge" step="0.01" placeholder="Fee (opt)" class="input-field">
                 <input type="date" id="date" class="input-field" required>
                 <button type="button" onclick="setTodayDate()" class="btn-secondary">Today</button>
-                <button type="button" onclick="openSplitModal()" class="btn-secondary text-[10px]">+ Split Transaction</button>
+                <div></div>
             </div>
             <div id="transfer-destination-container" class="hidden"><select id="to-wallet" class="input-field w-48"><option value="MoMo">→ MoMo</option><option value="Stanbic">→ Stanbic</option><option value="Ecobank">→ Ecobank</option><option value="Cash">→ Cash</option><option value="Other">→ Other</option></select></div>
             <div class="flex items-center gap-3"><input type="checkbox" id="is-recurring" class="accent-indigo-500"><label class="text-xs font-medium">Mark as Recurring</label><button type="submit" class="btn-primary ml-auto px-8">Save Record</button></div>
@@ -216,6 +216,16 @@
                 <div id="goals-empty" class="text-center py-6 text-slate-500 text-xs">No goals yet — add one!</div>
             </div>
 
+            <!-- Budget Limits -->
+            <div class="glass-card p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <div><h2 class="text-sm font-black">🎯 Budget Limits</h2><p class="text-[9px] text-slate-500">Monthly spend caps · current month</p></div>
+                    <button onclick="openBudgetModal()" class="btn-secondary text-[9px] py-1 px-3">+ Set Limit</button>
+                </div>
+                <div id="budget-list" class="space-y-3"></div>
+                <div id="budget-empty" class="text-center py-4 text-slate-500 text-xs hidden">No budget limits set</div>
+            </div>
+
             <!-- Recurring Reminders -->
             <div class="glass-card p-5">
                 <h2 class="text-sm font-black mb-3">🔄 Recurring Transactions</h2>
@@ -262,6 +272,19 @@
                 </div>
             </div>
 
+            <!-- 6-Month Income vs Expense Trend -->
+            <div class="glass-card p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <div><h2 class="text-sm font-black">📊 Income vs Expense</h2><p class="text-[8px] text-slate-500">Last 6 months</p></div>
+                    <div class="flex gap-3 text-[9px] font-bold"><span class="text-emerald-400">▬ Income</span><span class="text-rose-400">▬ Expense</span></div>
+                </div>
+                <div id="trend-chart" style="height:110px; position:relative; display:flex; align-items:flex-end; gap:6px; padding-left:40px;">
+                    <div id="trend-y-axis" style="position:absolute;left:0;top:0;bottom:0;width:36px;display:flex;flex-direction:column;justify-content:space-between;text-align:right;padding-right:6px;border-right:1px solid rgba(255,255,255,0.05);font-size:7px;font-weight:700;color:#64748B;"></div>
+                    <div id="trend-bars" class="flex-1 flex items-end justify-around h-full gap-1"></div>
+                </div>
+                <div id="trend-empty" class="text-center py-6 text-slate-500 text-xs hidden">No data yet</div>
+            </div>
+
             <!-- Spend Velocity Chart -->
             <div class="glass-card p-5">
                 <div class="flex justify-between items-center mb-4"><div><h2 class="text-sm font-black">📈 Spend Velocity</h2><p class="text-[8px] text-slate-500">Last 7 days</p></div><div class="flex flex-col items-end"><span id="avg-burn-badge" class="text-[8px] font-black text-slate-400">Avg ₵0</span><span id="today-spend-badge" class="text-[8px] font-black text-purple-400 hidden">Today ₵0</span></div></div>
@@ -274,7 +297,15 @@
                 <div class="glass-card p-5"><div class="flex justify-between items-center mb-3 flex-wrap gap-2"><h2 class="text-sm font-black">🎁 Free Benefits</h2><div class="flex gap-2 items-center"><span id="fb-month-label" class="text-[9px] text-slate-500 font-bold"></span><span id="fb-month-total" class="text-xs font-bold text-emerald-400">₵0</span><span id="fb-all-total" class="text-[9px] font-bold text-slate-400">All: ₵0</span></div></div>
                 <div class="flex flex-wrap gap-2 mb-3"><input type="text" id="fb-search" placeholder="Search..." class="input-field flex-1 text-sm"><select id="fb-cat-filter" onchange="renderFreeBenefits()" class="input-field w-28"><option value="">All</option><option value="Food">Food</option><option value="Transport">Transport</option><option value="Accommodation">Accommodation</option><option value="Other">Other</option></select></div>
                 <div class="flex flex-wrap gap-2 mb-3"><input type="text" id="fb-desc" placeholder="What did you get?" class="input-field flex-1"><input type="number" id="fb-amt" placeholder="Value" step="0.01" class="input-field w-28"><select id="fb-cat" class="input-field w-28"><option>Food</option><option>Transport</option><option>Accommodation</option><option>Other</option></select><input type="text" id="fb-from" placeholder="From" class="input-field w-28"><input type="date" id="fb-date" class="input-field w-32"><button onclick="logFreeBenefit()" class="btn-primary text-[10px] px-4">+ Log</button></div>
-                <div id="fb-list" class="space-y-1.5 max-h-48 overflow-y-auto custom-scroll"></div>
+                <div id="fb-breakdown-wrap" class="mb-3 hidden">
+                    <div class="flex items-center gap-3">
+                        <div class="donut-wrap flex-shrink-0">
+                            <svg id="fb-donut-svg" width="70" height="70" viewBox="0 0 70 70"></svg>
+                        </div>
+                        <div id="fb-donut-legend" class="flex-1 space-y-1"></div>
+                    </div>
+                </div>
+                <div id="fb-list" class="space-y-1.5 max-h-40 overflow-y-auto custom-scroll"></div>
                 <div id="fb-empty" class="text-center py-4 text-slate-500 text-xs hidden">No free benefits logged</div></div>
             </div>
         </div>
@@ -289,6 +320,28 @@
         <textarea id="import-json" rows="6" class="input-field font-mono text-xs" placeholder='Paste exported JSON here...'></textarea>
         <div class="flex gap-2 mt-4"><button onclick="confirmImport()" class="btn-primary flex-1">Import</button><button onclick="closeImportModal()" class="btn-secondary flex-1">Cancel</button></div>
         <p id="import-error" class="text-[9px] text-rose-500 mt-2 hidden">Invalid JSON format</p>
+    </div>
+</div>
+
+<!-- Budget Modal -->
+<div id="budget-modal" class="modal-overlay hidden">
+    <div class="glass-card p-6 w-full max-w-sm animate-fade-in">
+        <h3 class="font-black mb-4">🎯 Set Budget Limit</h3>
+        <div class="space-y-3">
+            <select id="budget-cat" class="input-field">
+                <option value="">— Select Category —</option>
+                <option>Food &amp; Drinks</option><option>Transport</option><option>Housing &amp; Utilities</option>
+                <option>Health</option><option>Communication</option><option>Clothing &amp; Personal Care</option>
+                <option>Education</option><option>Entertainment</option><option>Family &amp; Relationships</option>
+                <option>Offering &amp; Tithes</option><option>Business Expense</option><option>Bank &amp; Fees</option>
+                <option>Other Expense</option>
+            </select>
+            <input type="number" id="budget-limit" step="0.01" placeholder="Monthly limit ₵" class="input-field">
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="saveBudget()" class="btn-primary flex-1">Save</button>
+            <button onclick="closeBudgetModal()" class="btn-secondary flex-1">Cancel</button>
+        </div>
     </div>
 </div>
 
@@ -310,15 +363,6 @@
 </div>
 
 
-<div id="split-modal" class="modal-overlay hidden">
-    <div class="glass-card p-6 w-full max-w-md animate-fade-in">
-        <h3 class="font-black mb-3">Split Transaction</h3>
-        <p class="text-xs text-slate-400 mb-3">Divide one amount across multiple categories</p>
-        <div id="split-entries" class="space-y-2 max-h-64 overflow-y-auto mb-3"></div>
-        <button onclick="addSplitEntry()" class="btn-secondary text-[10px] w-full mb-3">+ Add Category</button>
-        <div class="flex gap-2"><button onclick="confirmSplitTransaction()" class="btn-primary flex-1">Save Split</button><button onclick="closeSplitModal()" class="btn-secondary flex-1">Cancel</button></div>
-    </div>
-</div>
 
 <script>
 // ======================= CATEGORIES =======================
@@ -340,7 +384,6 @@ let fbDb = JSON.parse(localStorage.getItem(FB_KEY)) || [];
 let viewDate = new Date();
 let auditTab = 'all';
 let metricsVisible = false;
-let currentSplit = [];
 
 // Save empty state to localStorage if nothing exists
 if (!localStorage.getItem(DB_KEY)) localStorage.setItem(DB_KEY, JSON.stringify([]));
@@ -454,6 +497,17 @@ function renderMetrics() {
     document.getElementById('burn-bar').style.width = income>0 ? Math.min(100,Math.max(0,(delta/income)*100))+'%' : '0%';
     const fbTotal = fbDb.filter(e=>{ const [ey,em]=e.date.split('-'); return parseInt(em)-1===m&&parseInt(ey)===y; }).reduce((s,e)=>s+e.amt,0);
     document.getElementById('fb-month-metric').innerHTML = fmt(fbTotal);
+    // Net worth: total wallet balances minus outstanding loans
+    const walletBal = ['MoMo','Stanbic','Ecobank','Cash','Other'].reduce((tot,w)=>{
+        return tot + db.filter(e=>e.wallet===w).reduce((s,e)=>{ if(e.type==='income'||e.type==='repay') return s+e.amt; if(e.type==='expense'||e.type==='lend') return s-e.amt; return s; },0);
+    },0);
+    const loanMap2={};
+    db.filter(e=>e.type==='lend').forEach(e=>{ const k=e.desc.replace(/^LENT:\s*/i,''); loanMap2[k]=(loanMap2[k]||0)+e.amt; });
+    db.filter(e=>e.type==='repay').forEach(e=>{ const k=e.desc.replace(/^REPAY:\s*/i,''); const match=Object.keys(loanMap2).find(kk=>k.includes(kk)||kk.includes(k)); if(match) loanMap2[match]-=e.amt; });
+    const totalLoans=Object.values(loanMap2).filter(v=>v>0.01).reduce((s,v)=>s+v,0);
+    const netWorth=walletBal-totalLoans;
+    const nwEl=document.getElementById('net-worth-metric');
+    if(nwEl){ nwEl.innerHTML=(netWorth<0?'-':'')+fmt(netWorth); nwEl.style.color=netWorth>=0?'#a78bfa':'#fb7185'; }
 }
 function toggleMetrics() { metricsVisible = !metricsVisible; document.querySelectorAll('.metric-blur').forEach(el=>el.classList.toggle('revealed',metricsVisible)); }
 
@@ -541,41 +595,7 @@ function filterByDate(date) {
     renderAll();
 }
 
-// ======================= SPLIT TRANSACTIONS =======================
-function openSplitModal(){ currentSplit = []; addSplitEntry(); document.getElementById('split-modal').classList.remove('hidden'); }
-function closeSplitModal(){ document.getElementById('split-modal').classList.add('hidden'); }
-function addSplitEntry(){
-    const container = document.getElementById('split-entries');
-    const idx = currentSplit.length;
-    currentSplit.push({ cat: '', amt: 0 });
-    const catOptions = `<option value="">Category</option><option>Food & Dining</option><option>Transport</option><option>Utilities</option><option>Rent & Housing</option><option>Healthcare</option><option>Education</option><option>Entertainment</option><option>Gift to Someone</option><option>Other</option>`;
-    container.insertAdjacentHTML('beforeend', `<div class="flex gap-2 items-center" data-split-idx="${idx}"><select class="input-field text-sm flex-1 split-cat">${catOptions}</select><input type="number" step="0.01" placeholder="Amount" class="input-field w-28 split-amt"><button onclick="removeSplitEntry(${idx})" class="text-rose-400 text-lg font-bold">✕</button></div>`);
-}
-function removeSplitEntry(idx){ currentSplit.splice(idx,1); renderSplitModal(); }
-function renderSplitModal(){
-    const container = document.getElementById('split-entries');
-    container.innerHTML = '';
-    const catOptions = `<option value="">Category</option><option>Food & Dining</option><option>Transport</option><option>Utilities</option><option>Rent & Housing</option><option>Healthcare</option><option>Education</option><option>Entertainment</option><option>Gift to Someone</option><option>Other</option>`;
-    currentSplit.forEach((s,i)=>{
-        container.insertAdjacentHTML('beforeend', `<div class="flex gap-2 items-center" data-split-idx="${i}"><select class="input-field text-sm flex-1 split-cat">${catOptions}${s.cat?`<option selected>${s.cat}</option>`:''}</select><input type="number" step="0.01" placeholder="Amount" value="${s.amt||''}" class="input-field w-28 split-amt"><button onclick="removeSplitEntry(${i})" class="text-rose-400 text-lg font-bold">✕</button></div>`);
-    });
-}
-function confirmSplitTransaction(){
-    const entries = document.querySelectorAll('#split-entries > div');
-    const splitData = []; let total = 0;
-    entries.forEach(div=>{ const cat = div.querySelector('.split-cat').value; const amt = parseFloat(div.querySelector('.split-amt').value); if(cat && amt>0){ splitData.push({cat,amt}); total += amt; } });
-    if(splitData.length < 2){ toast('Add at least 2 categories for split'); return; }
-    const desc = document.getElementById('desc').value.trim() || 'Split transaction';
-    const date = document.getElementById('date').value;
-    if(!date){ toast('Select date'); return; }
-    const wallet = document.getElementById('wallet').value;
-    splitData.forEach(split=>{ db.push({ id: Date.now()+Math.random(), desc: `${desc} (${split.cat})`, amt: split.amt, date, type: 'expense', wallet, cat: split.cat, isSplit: true }); });
-    save();
-    closeSplitModal();
-    document.getElementById('desc').value = '';
-    document.getElementById('amt').value = '';
-    toast(`Split: ${splitData.length} categories, total ${fmt(total)}`);
-}
+
 
 // ======================= LEDGER =======================
 function renderLedger(){
@@ -688,7 +708,6 @@ function handleFormSubmit(e){
     const wallet = document.getElementById('wallet').value;
     const desc = document.getElementById('desc').value.trim() || cat;
     const isRecurring = document.getElementById('is-recurring').checked;
-    const charge = parseFloat(document.getElementById('charge').value)||0;
     if(type==='transfer'){
         const to = document.getElementById('to-wallet').value;
         if(!to || to === wallet){ toast('Select a different destination wallet'); return; }
@@ -697,7 +716,6 @@ function handleFormSubmit(e){
     } else {
         db.push({ id: Date.now(), desc, amt, date, type, wallet, cat, isRecurring });
     }
-    if(charge>0) db.push({ id: Date.now()+999, desc: `Fee: ${desc}`, amt: charge, date, type: 'expense', wallet, cat: 'Bank Charges', isFee: true });
     save();
     document.getElementById('entry-form').reset();
     document.getElementById('date').value = new Date().toISOString().split('T')[0];
@@ -864,10 +882,111 @@ function quickLogRecurring(id){
     toast(`Logged: ${orig.desc}`);
 }
 
+// ======================= BUDGET LIMITS =======================
+const BUDGET_KEY = 'hub_finapp_budgets';
+let budgetsDb = JSON.parse(localStorage.getItem(BUDGET_KEY)) || [];
+function saveBudgetsDb(){ localStorage.setItem(BUDGET_KEY, JSON.stringify(budgetsDb)); }
+function openBudgetModal(){ document.getElementById('budget-modal').classList.remove('hidden'); document.getElementById('budget-cat').value=''; document.getElementById('budget-limit').value=''; }
+function closeBudgetModal(){ document.getElementById('budget-modal').classList.add('hidden'); }
+function saveBudget(){
+    const cat = document.getElementById('budget-cat').value;
+    const limit = parseFloat(document.getElementById('budget-limit').value);
+    if(!cat){ toast('Select a category'); return; }
+    if(!limit||limit<=0){ toast('Enter a valid limit'); return; }
+    const existing = budgetsDb.findIndex(b=>b.cat===cat);
+    if(existing>=0) budgetsDb[existing].limit=limit;
+    else budgetsDb.push({ cat, limit });
+    saveBudgetsDb(); closeBudgetModal(); renderBudgets(); toast('Budget set ✓');
+}
+function deleteBudget(cat){ budgetsDb=budgetsDb.filter(b=>b.cat!==cat); saveBudgetsDb(); renderBudgets(); toast('Budget removed'); }
+function renderBudgets(){
+    const m=viewDate.getMonth(), y=viewDate.getFullYear();
+    const container=document.getElementById('budget-list');
+    const empty=document.getElementById('budget-empty');
+    if(!budgetsDb.length){ container.innerHTML=''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    container.innerHTML=budgetsDb.map(b=>{
+        const spent=db.filter(e=>{ const [ey,em]=e.date.split('-'); return parseInt(em)-1===m&&parseInt(ey)===y&&e.type==='expense'&&!e.isTransfer&&e.cat===b.cat; }).reduce((s,e)=>s+e.amt,0);
+        const pct=Math.min(100,(spent/b.limit)*100);
+        const over=spent>b.limit;
+        const color=over?'#FB7185':pct>=80?'#F59E0B':'#6366F1';
+        return `<div>
+            <div class="flex justify-between text-[10px] font-semibold mb-1">
+                <span>${esc(b.cat)}</span>
+                <div class="flex items-center gap-2">
+                    <span class="${over?'text-rose-400':'text-slate-300'}">${fmt(spent)} / ${fmt(b.limit)}</span>
+                    ${over?'<span class="overdue-tag">over</span>':''}
+                    <button onclick="deleteBudget('${esc(b.cat)}')" class="text-rose-400/40 hover:text-rose-400 text-xs ml-1">✕</button>
+                </div>
+            </div>
+            <div class="goal-bar-track"><div class="goal-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        </div>`;
+    }).join('');
+}
+
+// ======================= INCOME VS EXPENSE TREND =======================
+function renderTrend(){
+    const months=[];
+    for(let i=5;i>=0;i--){
+        const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-i);
+        const mm=d.getMonth(), yy=d.getFullYear();
+        const label=d.toLocaleString('default',{month:'short'});
+        const inc=db.filter(e=>{ const [ey,em]=e.date.split('-'); return parseInt(em)-1===mm&&parseInt(ey)===yy&&e.type==='income'&&!e.isTransfer; }).reduce((s,e)=>s+e.amt,0);
+        const exp=db.filter(e=>{ const [ey,em]=e.date.split('-'); return parseInt(em)-1===mm&&parseInt(ey)===yy&&e.type==='expense'&&!e.isTransfer; }).reduce((s,e)=>s+e.amt,0);
+        months.push({label,inc,exp});
+    }
+    const maxVal=Math.max(...months.map(m=>Math.max(m.inc,m.exp)),1);
+    const hasData=months.some(m=>m.inc>0||m.exp>0);
+    const empty=document.getElementById('trend-empty');
+    const chart=document.getElementById('trend-chart');
+    if(!hasData){ empty.classList.remove('hidden'); chart.style.opacity='0'; return; }
+    empty.classList.add('hidden'); chart.style.opacity='1';
+    document.getElementById('trend-y-axis').innerHTML=`<span>${fmt(maxVal)}</span><span>${fmt(maxVal/2)}</span><span>₵0</span>`;
+    document.getElementById('trend-bars').innerHTML=months.map(m=>`
+        <div class="flex flex-col items-center gap-1 flex-1" title="${m.label}: In ${fmt(m.inc)} / Out ${fmt(m.exp)}">
+            <div style="height:100px;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:2px;">
+                <div style="width:40%;background:#10B981;border-radius:3px 3px 0 0;height:${Math.max(2,(m.inc/maxVal)*100)}px;opacity:0.85" title="Income ${fmt(m.inc)}"></div>
+                <div style="width:40%;background:#FB7185;border-radius:3px 3px 0 0;height:${Math.max(2,(m.exp/maxVal)*100)}px;opacity:0.85" title="Expense ${fmt(m.exp)}"></div>
+            </div>
+            <span class="text-[7px] font-bold text-slate-500 uppercase">${m.label}</span>
+        </div>`).join('');
+}
+
+// ======================= FREE BENEFITS DONUT =======================
+const FB_CAT_COLORS={Food:'#10B981',Transport:'#6366F1',Accommodation:'#F59E0B',Other:'#8B5CF6'};
+function renderFbDonut(){
+    const m=viewDate.getMonth(), y=viewDate.getFullYear();
+    const monthFb=fbDb.filter(x=>{ const [fy,fm]=x.date.split('-'); return parseInt(fm)-1===m&&parseInt(fy)===y; });
+    const wrap=document.getElementById('fb-breakdown-wrap');
+    const svg=document.getElementById('fb-donut-svg');
+    const legend=document.getElementById('fb-donut-legend');
+    if(!monthFb.length||!wrap){ if(wrap) wrap.classList.add('hidden'); return; }
+    const catMap={};
+    monthFb.forEach(x=>{ catMap[x.cat]=(catMap[x.cat]||0)+x.amt; });
+    const entries=Object.entries(catMap).sort((a,b)=>b[1]-a[1]);
+    const total=entries.reduce((s,[,v])=>s+v,0);
+    wrap.classList.remove('hidden');
+    const cx=35,cy=35,r=28,ir=16;
+    let angle=-Math.PI/2, paths='';
+    entries.forEach(([cat,val])=>{
+        const color=FB_CAT_COLORS[cat]||'#64748B';
+        const slice=(val/total)*2*Math.PI;
+        const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+        const x2=cx+r*Math.cos(angle+slice),y2=cy+r*Math.sin(angle+slice);
+        const ix1=cx+ir*Math.cos(angle),iy1=cy+ir*Math.sin(angle);
+        const ix2=cx+ir*Math.cos(angle+slice),iy2=cy+ir*Math.sin(angle+slice);
+        const large=slice>Math.PI?1:0;
+        paths+=`<path d="M${ix1},${iy1} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} L${ix2},${iy2} A${ir},${ir} 0 ${large},0 ${ix1},${iy1}Z" fill="${color}" opacity="0.9"><title>${cat}: ${fmt(val)}</title></path>`;
+        angle+=slice;
+    });
+    svg.innerHTML=paths;
+    legend.innerHTML=entries.map(([cat,val])=>`<div class="flex items-center gap-1.5"><span style="width:7px;height:7px;border-radius:50%;background:${FB_CAT_COLORS[cat]||'#64748B'};flex-shrink:0;display:inline-block"></span><span class="text-[9px] flex-1">${cat}</span><span class="text-[9px] font-bold text-slate-300">${((val/total)*100).toFixed(0)}%</span></div>`).join('');
+}
+
 // ======================= OVERRIDE renderAll =======================
 const _origRenderAll = renderAll;
 // Patch renderAll to also run new features
-function renderAll(){ renderMetrics(); renderLedger(); renderLoans(); renderAssetMap(); renderSpendVelocity(); renderFreeBenefits(); updateMonthDisplay(); renderCategoryChart(); renderGoals(); renderRecurring(); }
+function renderAll(){ renderMetrics(); renderLedger(); renderLoans(); renderAssetMap(); renderSpendVelocity(); renderFreeBenefits(); renderFbDonut(); updateMonthDisplay(); renderCategoryChart(); renderGoals(); renderRecurring(); renderBudgets(); renderTrend(); }
 
 // ======================= THEME =======================
 function toggleTheme(){

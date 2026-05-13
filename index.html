@@ -236,6 +236,15 @@ select option { background: #1C2235; }
       <div class="tab-pill" id="tab-lend" onclick="setTab('lend')">Loans</div>
     </div>
 
+    <div class="tab-row" id="wallet-filter-row" style="margin-top:0">
+      <div class="tab-pill active" id="wf-all" onclick="setWallet('all')">All Wallets</div>
+      <div class="tab-pill" id="wf-Cash" onclick="setWallet('Cash')">💵 Cash</div>
+      <div class="tab-pill" id="wf-MoMo" onclick="setWallet('MoMo')">📱 MoMo</div>
+      <div class="tab-pill" id="wf-Stanbic" onclick="setWallet('Stanbic')">🏦 Stanbic</div>
+      <div class="tab-pill" id="wf-Ecobank" onclick="setWallet('Ecobank')">🏦 Ecobank</div>
+      <div class="tab-pill" id="wf-Other" onclick="setWallet('Other')">🔖 Other</div>
+    </div>
+
     <div class="month-nav">
       <button class="month-btn" onclick="changeMonth(-1)">←</button>
       <div class="month-name" id="ledger-month"></div>
@@ -538,7 +547,7 @@ let fbDb=JSON.parse(localStorage.getItem(FB_KEY))||[];
 let goalsDb=JSON.parse(localStorage.getItem(GOALS_KEY))||[];
 let budgetsDb=JSON.parse(localStorage.getItem(BUDGETS_KEY))||[];
 let quickDb=JSON.parse(localStorage.getItem(QUICK_KEY))||[];
-let viewDate=new Date(), activeTab='all', isBlurred=true, currentScreen='log';
+let viewDate=new Date(), activeTab='all', activeWallet='all', isBlurred=true, currentScreen='log';
 
 const CATS={
   expense:["Food & Drinks","Transport","Housing & Utilities","Health","Communication","Clothing & Personal Care","Education","Entertainment","Family & Relationships","Offering & Tithes","Business Expense","Bank & Fees","Savings & Investment","Other Expense"],
@@ -643,6 +652,7 @@ function renderLedger(){
   else if(activeTab!=='all')data=data.filter(e=>e.type===activeTab&&!e.isTransfer);
   const s=document.getElementById('ledger-search').value.toLowerCase();
   if(s)data=data.filter(e=>e.desc.toLowerCase().includes(s)||(e.cat||'').toLowerCase().includes(s));
+  if(activeWallet!=='all')data=data.filter(e=>e.wallet===activeWallet);
   data.sort((a,b)=>b.date.localeCompare(a.date));
   document.getElementById('ledger-month').innerText=viewDate.toLocaleString('default',{month:'long',year:'numeric'});
   const body=document.getElementById('ledger-body');
@@ -666,8 +676,15 @@ function deleteEntry(id){if(!confirm('Delete this record?'))return;db=db.filter(
 
 function setTab(tab){
   activeTab=tab;
-  document.querySelectorAll('.tab-pill').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-pill[id^="tab-"]').forEach(p=>p.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
+  renderLedger();
+}
+
+function setWallet(wallet){
+  activeWallet=wallet;
+  document.querySelectorAll('.tab-pill[id^="wf-"]').forEach(p=>p.classList.remove('active'));
+  document.getElementById('wf-'+wallet).classList.add('active');
   renderLedger();
 }
 

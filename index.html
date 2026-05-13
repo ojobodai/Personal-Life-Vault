@@ -130,6 +130,15 @@ select option { background: #1C2235; }
 .wallet-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .loan-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); }
 .loan-row:last-child { border-bottom: none; }
+.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); background: transparent; transition: all 0.15s; }
+.pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+.pin-key { height: 60px; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; font-size: 20px; font-weight: 700; color: var(--text); cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+.pin-key:active { background: var(--surface3); transform: scale(0.94); }
+.pin-del { font-size: 16px; }
+.wallet-mgr-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.wallet-mgr-row:last-child { border-bottom: none; }
+.color-swatch { width: 22px; height: 22px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; flex-shrink: 0; }
+.color-swatch.selected { border-color: white; transform: scale(1.15); }
 .benefit-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .benefit-item:last-child { border-bottom: none; }
 .benefit-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
@@ -167,6 +176,94 @@ select option { background: #1C2235; }
 
 <div id="toast"></div>
 
+<!-- PIN LOCK SCREEN -->
+<div id="pin-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;flex-direction:column;align-items:center;justify-content:center;gap:0">
+  <div style="text-align:center;margin-bottom:32px">
+    <div style="font-size:28px;font-weight:800;background:linear-gradient(135deg,#5B6EF5 0%,#A855F7 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Hub</div>
+    <div style="font-size:10px;color:var(--muted);font-weight:600;letter-spacing:1.2px;text-transform:uppercase;margin-top:2px">Enter PIN to unlock</div>
+  </div>
+  <div id="pin-dots" style="display:flex;gap:14px;margin-bottom:32px">
+    <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+  </div>
+  <div id="pin-err" style="font-size:11px;color:var(--red);margin-bottom:12px;min-height:16px;font-weight:600"></div>
+  <div style="display:grid;grid-template-columns:repeat(3,72px);gap:10px">
+    <button class="pin-key" onclick="pinKey('1')">1</button><button class="pin-key" onclick="pinKey('2')">2</button><button class="pin-key" onclick="pinKey('3')">3</button>
+    <button class="pin-key" onclick="pinKey('4')">4</button><button class="pin-key" onclick="pinKey('5')">5</button><button class="pin-key" onclick="pinKey('6')">6</button>
+    <button class="pin-key" onclick="pinKey('7')">7</button><button class="pin-key" onclick="pinKey('8')">8</button><button class="pin-key" onclick="pinKey('9')">9</button>
+    <div></div><button class="pin-key" onclick="pinKey('0')">0</button><button class="pin-key pin-del" onclick="pinDel()">⌫</button>
+  </div>
+</div>
+
+<!-- PIN SETUP MODAL -->
+<div id="pin-setup-modal" class="modal-bg hidden">
+  <div class="modal-sheet">
+    <div class="modal-title" id="pin-setup-title">🔐 Set PIN</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:14px" id="pin-setup-sub">Enter a 4-digit PIN to lock the app.</p>
+    <div id="pin-setup-dots" style="display:flex;gap:14px;justify-content:center;margin-bottom:16px">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      <button class="pin-key" onclick="pinSetupKey('1')">1</button><button class="pin-key" onclick="pinSetupKey('2')">2</button><button class="pin-key" onclick="pinSetupKey('3')">3</button>
+      <button class="pin-key" onclick="pinSetupKey('4')">4</button><button class="pin-key" onclick="pinSetupKey('5')">5</button><button class="pin-key" onclick="pinSetupKey('6')">6</button>
+      <button class="pin-key" onclick="pinSetupKey('7')">7</button><button class="pin-key" onclick="pinSetupKey('8')">8</button><button class="pin-key" onclick="pinSetupKey('9')">9</button>
+      <div></div><button class="pin-key" onclick="pinSetupKey('0')">0</button><button class="pin-key pin-del" onclick="pinSetupDel()">⌫</button>
+    </div>
+    <div id="pin-setup-err" style="font-size:10px;color:var(--red);min-height:14px;text-align:center;margin-bottom:8px"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closePinSetup()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- WALLET MANAGER MODAL -->
+<div id="wallet-modal" class="modal-bg hidden">
+  <div class="modal-sheet">
+    <div class="modal-title">💳 Manage Wallets</div>
+    <div id="wallet-mgr-list" style="margin-bottom:14px;max-height:220px;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px;margin-bottom:4px">
+      <input type="text" id="new-wallet-name" placeholder="New wallet name" style="flex:1">
+      <input type="text" id="new-wallet-color" placeholder="#hex" style="width:72px">
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px" id="wallet-color-swatches"></div>
+    <button class="btn-primary" onclick="addWallet()">+ Add Wallet</button>
+    <div class="modal-actions" style="margin-top:10px">
+      <button class="btn-ghost" style="flex:1;padding:12px;font-size:13px;color:var(--text)" onclick="closeWalletModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT TRANSACTION MODAL -->
+<div id="edit-modal" class="modal-bg hidden">
+  <div class="modal-sheet">
+    <div class="modal-title">✏️ Edit Transaction</div>
+    <input type="hidden" id="edit-id">
+    <div class="field-row c2">
+      <select id="edit-type" onchange="onEditTypeChange()">
+        <option value="expense">Expense</option>
+        <option value="income">Income</option>
+        <option value="lend">Lend Out</option>
+        <option value="repay">Repayment</option>
+      </select>
+      <select id="edit-wallet"></select>
+    </div>
+    <div class="field-row c2">
+      <select id="edit-cat"></select>
+      <input type="text" id="edit-desc" placeholder="Description">
+    </div>
+    <div class="field-row c2">
+      <input type="number" id="edit-amt" step="0.01" placeholder="Amount ₵">
+      <input type="date" id="edit-date">
+    </div>
+    <label style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;margin-bottom:14px">
+      <input type="checkbox" id="edit-recurring" style="width:auto;accent-color:var(--accent)"> Mark Recurring
+    </label>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
+      <button class="btn-ghost" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="app">
 
   <!-- LOG SCREEN -->
@@ -177,6 +274,12 @@ select option { background: #1C2235; }
         <div class="logo-sub">Beyond Numbers</div>
       </div>
       <div class="header-actions">
+        <div class="icon-btn" onclick="openWalletModal()" title="Wallets">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
+        </div>
+        <div class="icon-btn" onclick="openPinSetup()" title="PIN Lock">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
         <div class="icon-btn" onclick="exportCSV()" title="CSV">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
         </div>
@@ -201,17 +304,12 @@ select option { background: #1C2235; }
           <option value="lend">Lend Out</option>
           <option value="repay">Repayment</option>
         </select>
-        <select id="f-wallet">
-          <option>Cash</option><option>MoMo</option><option>Stanbic</option><option>Ecobank</option><option>Other</option>
-        </select>
+        <select id="f-wallet"></select>
       </div>
       <div class="field-row c2">
         <select id="f-cat"></select>
         <div id="f-towallet-wrap" style="display:none">
-          <select id="f-towallet">
-            <option value="MoMo">→ MoMo</option><option value="Stanbic">→ Stanbic</option>
-            <option value="Ecobank">→ Ecobank</option><option value="Cash">→ Cash</option><option value="Other">→ Other</option>
-          </select>
+          <select id="f-towallet"></select>
         </div>
         <input type="text" id="f-desc" placeholder="Description (optional)">
       </div>
@@ -238,11 +336,6 @@ select option { background: #1C2235; }
 
     <div class="tab-row" id="wallet-filter-row" style="margin-top:0">
       <div class="tab-pill active" id="wf-all" onclick="setWallet('all')">All Wallets</div>
-      <div class="tab-pill" id="wf-Cash" onclick="setWallet('Cash')">💵 Cash</div>
-      <div class="tab-pill" id="wf-MoMo" onclick="setWallet('MoMo')">📱 MoMo</div>
-      <div class="tab-pill" id="wf-Stanbic" onclick="setWallet('Stanbic')">🏦 Stanbic</div>
-      <div class="tab-pill" id="wf-Ecobank" onclick="setWallet('Ecobank')">🏦 Ecobank</div>
-      <div class="tab-pill" id="wf-Other" onclick="setWallet('Other')">🔖 Other</div>
     </div>
 
     <div class="month-nav">
@@ -332,7 +425,6 @@ select option { background: #1C2235; }
         <span>Spending by Category</span>
         <select id="ov-wallet-filter" onchange="renderCatChart()" style="width:auto;padding:5px 10px;font-size:10px;border-radius:8px">
           <option value="">All Wallets</option>
-          <option>Cash</option><option>MoMo</option><option>Stanbic</option><option>Ecobank</option><option>Other</option>
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:16px">
@@ -354,6 +446,10 @@ select option { background: #1C2235; }
         </div>
       </div>
       <div style="background:var(--surface2);border-radius:12px;padding:12px;margin-bottom:12px">
+        <div id="fb-quick-row" style="display:none;margin-bottom:10px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--muted);margin-bottom:6px">Repeat a past benefit</div>
+          <div id="fb-quick-chips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
         <div class="field-row c2">
           <input type="text" id="fb-desc" placeholder="What? (meal, ride…)">
           <input type="text" id="fb-from" placeholder="From (person / org)">
@@ -541,12 +637,14 @@ select option { background: #1C2235; }
 </div>
 
 <script>
-const DB_KEY='hub_finapp_db', FB_KEY='hub_finapp_fb', GOALS_KEY='hub_finapp_goals', BUDGETS_KEY='hub_finapp_budgets', QUICK_KEY='hub_finapp_quick';
+const DB_KEY='hub_finapp_db', FB_KEY='hub_finapp_fb', GOALS_KEY='hub_finapp_goals', BUDGETS_KEY='hub_finapp_budgets', QUICK_KEY='hub_finapp_quick', WALLET_KEY='hub_finapp_wallets', PIN_KEY='hub_finapp_pin';
 let db=JSON.parse(localStorage.getItem(DB_KEY))||[];
 let fbDb=JSON.parse(localStorage.getItem(FB_KEY))||[];
 let goalsDb=JSON.parse(localStorage.getItem(GOALS_KEY))||[];
 let budgetsDb=JSON.parse(localStorage.getItem(BUDGETS_KEY))||[];
 let quickDb=JSON.parse(localStorage.getItem(QUICK_KEY))||[];
+const DEFAULT_WALLETS=[{name:'Cash',color:'#F59E0B'},{name:'MoMo',color:'#6366F1'},{name:'Stanbic',color:'#818CF8'},{name:'Ecobank',color:'#10B981'},{name:'Other',color:'#0EA5E9'}];
+let walletsDb=JSON.parse(localStorage.getItem(WALLET_KEY))||DEFAULT_WALLETS;
 let viewDate=new Date(), activeTab='all', activeWallet='all', isBlurred=true, currentScreen='log';
 
 const CATS={
@@ -554,7 +652,8 @@ const CATS={
   income:["Salary / Wages","Business Revenue","Freelance / Side Hustle","Investment Return","Gift Received","Debt Recovery","Other Income"],
   transfer:["Wallet Move"], lend:["Loan Given Out"], repay:["Loan Repayment"]
 };
-const WALLET_COLORS={MoMo:'#6366F1',Stanbic:'#818CF8',Ecobank:'#10B981',Cash:'#F59E0B',Other:'#0EA5E9'};
+const getWalletColors=()=>Object.fromEntries(walletsDb.map(w=>[w.name,w.color]));
+const WALLET_COLORS_STATIC={MoMo:'#6366F1',Stanbic:'#818CF8',Ecobank:'#10B981',Cash:'#F59E0B',Other:'#0EA5E9'};
 const CAT_COLORS=['#6366F1','#8B5CF6','#EC4899','#F59E0B','#10B981','#3B82F6','#EF4444','#14B8A6','#F97316','#A855F7','#06B6D4','#84CC16'];
 
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -668,7 +767,7 @@ function renderLedger(){
     const prefix=isExp?'−':isInc?'+':'';
     const isOverdue=e.isRecurring&&!thisMonthLogged.has(e.desc+'|'+e.wallet)&&new Date(e.date).getMonth()!==now.getMonth();
     const tags=(e.isTransfer?'<span class="tag tag-transfer">transfer</span>':'')+(e.isRecurring?'<span class="tag tag-recurring">recurring</span>':'')+(e.type==='lend'||e.type==='repay'?'<span class="tag tag-loan">loan</span>':'')+(isOverdue?'<span class="tag tag-overdue">overdue</span>':'');
-    return `<div class="ledger-item"><div style="flex:1;min-width:0"><div class="ledger-desc">${esc(e.desc)}</div><div class="ledger-meta">${e.date.replace(/-/g,'/')} · ${esc(e.cat||'')}${tags}</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="ledger-amt" style="color:${color}">${prefix}${fmt(e.amt)}</div><button class="btn-danger" onclick="deleteEntry(${e.id})">✕</button></div></div>`;
+    return `<div class="ledger-item"><div style="flex:1;min-width:0"><div class="ledger-desc">${esc(e.desc)}</div><div class="ledger-meta">${e.date.replace(/-/g,'/')} · ${esc(e.cat||'')}${tags}</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="ledger-amt" style="color:${color}">${prefix}${fmt(e.amt)}</div><button class="btn-danger" style="color:rgba(91,110,245,0.4)" onclick="openEdit(${e.id})">✎</button><button class="btn-danger" onclick="deleteEntry(${e.id})">✕</button></div></div>`;
   }).join('');
 }
 
@@ -799,6 +898,7 @@ function renderBenefitsList(){
   const icons={Food:'🍽️',Transport:'🚌',Accommodation:'🏠',Other:'🎁'};
   const bgC={Food:'rgba(16,185,129,0.13)',Transport:'rgba(99,102,241,0.13)',Accommodation:'rgba(245,158,11,0.13)',Other:'rgba(139,92,246,0.13)'};
   list.innerHTML=monthFb.sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<div class="benefit-item"><div class="benefit-icon" style="background:${bgC[x.cat]||bgC.Other}">${icons[x.cat]||'🎁'}</div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">${esc(x.desc)}</div><div style="font-size:10px;color:var(--muted)">${x.from?'from '+esc(x.from)+' · ':''} ${x.date.replace(/-/g,'/')}</div></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--teal);font-weight:500;flex-shrink:0">${fmt(x.amt)}</div><button class="btn-danger" onclick="deleteBenefit(${x.id})">✕</button></div>`).join('');
+  renderBenefitQuickPicks();
 }
 
 function deleteBenefit(id){fbDb=fbDb.filter(x=>x.id!==id);saveFb();renderBenefitsList();toast('Removed');}
@@ -894,29 +994,23 @@ function quickLogRecurring(id){
 }
 
 function renderWallets(){
-  const wallets=['MoMo','Stanbic','Ecobank','Cash','Other'];
+  const WALLET_COLORS=getWalletColors();
+  const wallets=walletsDb.map(w=>w.name);
   const balances=wallets.map(w=>({name:w,bal:db.filter(e=>e.wallet===w).reduce((s,e)=>{if(e.type==='income'||e.type==='repay')return s+e.amt;if(e.type==='expense'||e.type==='lend')return s-e.amt;return s;},0)}));
   const loanMap={};
-  // LEND transactions increase the loan asset (money you are owed)
   db.filter(e=>e.type==='lend').forEach(e=>{const k=e.desc.replace(/^LENT:\s*/i,'');loanMap[k]=(loanMap[k]||0)+e.amt;});
-  // REPAY transactions decrease the loan asset
   db.filter(e=>e.type==='repay').forEach(e=>{const k=e.desc.replace(/^REPAY:\s*/i,'');const match=Object.keys(loanMap).find(kk=>k.includes(kk)||kk.includes(k));if(match)loanMap[match]-=e.amt;});
   const outstanding=Object.entries(loanMap).filter(([,v])=>v>0.01);
-  const totalLoans = outstanding.reduce((s,[,v])=>s+v,0);
-const totalBal = balances.reduce((s,b)=>s+b.bal,0);
-const netWorth = totalBal + totalLoans;  // ✅ WALLETS + LOANS
-
-// Update Wallet Balance display
-const walletEl = document.getElementById('wallet-balance');
-walletEl.innerText = (totalBal<0?'−':'')+fmt(totalBal);
-walletEl.style.color = totalBal>=0?'var(--green)':'var(--red)';
-
-// Update Net Worth display
-const nwEl = document.getElementById('net-worth');
-nwEl.innerText = (netWorth<0?'−':'')+fmt(netWorth);
-nwEl.style.color = netWorth>=0?'var(--green)':'var(--red)';
-  document.getElementById('wallet-list').innerHTML=balances.map(b=>`<div class="wallet-row"><div class="wallet-dot" style="background:${WALLET_COLORS[b.name]}"></div><div style="flex:1;font-size:13px;font-weight:600;margin-left:10px">${b.name}</div><div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:${b.bal>=0?'var(--text)':'var(--red)'}">${b.bal<0?'−':''}${fmt(b.bal)}</div></div>`).join('');
-
+  const totalLoans=outstanding.reduce((s,[,v])=>s+v,0);
+  const totalBal=balances.reduce((s,b)=>s+b.bal,0);
+  const netWorth=totalBal+totalLoans;
+  const walletEl=document.getElementById('wallet-balance');
+  walletEl.innerText=(totalBal<0?'−':'')+fmt(totalBal);
+  walletEl.style.color=totalBal>=0?'var(--green)':'var(--red)';
+  const nwEl=document.getElementById('net-worth');
+  nwEl.innerText=(netWorth<0?'−':'')+fmt(netWorth);
+  nwEl.style.color=netWorth>=0?'var(--green)':'var(--red)';
+  document.getElementById('wallet-list').innerHTML=balances.map(b=>`<div class="wallet-row"><div class="wallet-dot" style="background:${WALLET_COLORS[b.name]||'#64748B'}"></div><div style="flex:1;font-size:13px;font-weight:600;margin-left:10px">${b.name}</div><div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:500;color:${b.bal>=0?'var(--text)':'var(--red)'}">${b.bal<0?'−':''}${fmt(b.bal)}</div></div>`).join('');
   const positives=balances.filter(b=>b.bal>0);
   const totalPos=positives.reduce((s,b)=>s+b.bal,0);
   const asvg=document.getElementById('asset-donut');
@@ -926,9 +1020,8 @@ nwEl.style.color = netWorth>=0?'var(--green)':'var(--red)';
   else{
     aempty.classList.add('hidden');
     drawDonut(asvg,60,60,46,28,positives.map(b=>[b.name,b.bal]),totalPos,WALLET_COLORS);
-    document.getElementById('asset-legend').innerHTML=positives.map(b=>`<div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:${WALLET_COLORS[b.name]};flex-shrink:0;display:inline-block"></span><span style="font-size:10px;flex:1">${b.name}</span><span style="font-size:10px;font-weight:700;font-variant-numeric:tabular-nums">${fmt(b.bal)}</span><span style="font-size:9px;color:var(--muted)">${((b.bal/totalPos)*100).toFixed(0)}%</span></div>`).join('');
+    document.getElementById('asset-legend').innerHTML=positives.map(b=>`<div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:${WALLET_COLORS[b.name]||'#64748B'};flex-shrink:0;display:inline-block"></span><span style="font-size:10px;flex:1">${b.name}</span><span style="font-size:10px;font-weight:700;font-variant-numeric:tabular-nums">${fmt(b.bal)}</span><span style="font-size:9px;color:var(--muted)">${((b.bal/totalPos)*100).toFixed(0)}%</span></div>`).join('');
   }
-
   document.getElementById('spend-month-label').innerText=viewDate.toLocaleString('default',{month:'long',year:'numeric'});
   const spendByWallet=wallets.map(w=>({name:w,spent:db.filter(e=>mf(e)&&e.wallet===w&&e.type==='expense'&&!e.isTransfer).reduce((s,e)=>s+e.amt,0)})).filter(w=>w.spent>0);
   const totalSpent=spendByWallet.reduce((s,w)=>s+w.spent,0);
@@ -939,9 +1032,8 @@ nwEl.style.color = netWorth>=0?'var(--green)':'var(--red)';
   else{
     sempty.classList.add('hidden');
     drawDonut(ssvg,60,60,46,28,spendByWallet.map(w=>[w.name,w.spent]),totalSpent,WALLET_COLORS);
-    document.getElementById('spend-legend').innerHTML=spendByWallet.map(w=>`<div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:${WALLET_COLORS[w.name]};flex-shrink:0;display:inline-block"></span><span style="font-size:10px;flex:1">${w.name}</span><span style="font-size:10px;font-weight:700;font-variant-numeric:tabular-nums">${fmt(w.spent)}</span><span style="font-size:9px;color:var(--muted)">${((w.spent/totalSpent)*100).toFixed(0)}%</span></div>`).join('');
+    document.getElementById('spend-legend').innerHTML=spendByWallet.map(w=>`<div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:50%;background:${WALLET_COLORS[w.name]||'#64748B'};flex-shrink:0;display:inline-block"></span><span style="font-size:10px;flex:1">${w.name}</span><span style="font-size:10px;font-weight:700;font-variant-numeric:tabular-nums">${fmt(w.spent)}</span><span style="font-size:9px;color:var(--muted)">${((w.spent/totalSpent)*100).toFixed(0)}%</span></div>`).join('');
   }
-
   const loansEl=document.getElementById('loans-list');
   const loansEmpty=document.getElementById('loans-empty');
   document.getElementById('loans-total').innerText=fmt(totalLoans);
@@ -999,10 +1091,235 @@ function renderAll(){
   if(currentScreen==='wallets')renderWallets();
 }
 
+// ── WALLET MANAGEMENT ───────────────────────────────────────────────────────
+const SWATCH_COLORS=['#6366F1','#A855F7','#10B981','#F59E0B','#0EA5E9','#F43F5E','#14B8A6','#F97316','#3B82F6','#EC4899','#84CC16','#64748B'];
+let selectedSwatchColor=SWATCH_COLORS[0];
+
+function saveWallets(){localStorage.setItem(WALLET_KEY,JSON.stringify(walletsDb));}
+
+function rebuildWalletDropdowns(){
+  const names=walletsDb.map(w=>w.name);
+  ['f-wallet','edit-wallet'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    const prev=sel.value;
+    sel.innerHTML=names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    if(names.includes(prev))sel.value=prev;
+  });
+  const toSel=document.getElementById('f-towallet');
+  if(toSel){const prev=toSel.value;toSel.innerHTML=names.map(n=>`<option value="${esc(n)}">→ ${esc(n)}</option>`).join('');if(names.includes(prev))toSel.value=prev;}
+  // wallet filter pills
+  const row=document.getElementById('wallet-filter-row');
+  if(row){
+    const existing=row.querySelectorAll('.tab-pill[data-wallet]');
+    existing.forEach(p=>p.remove());
+    names.forEach(n=>{
+      const p=document.createElement('div');
+      p.className='tab-pill'+(activeWallet===n?' active':'');
+      p.id='wf-'+n;p.dataset.wallet=n;
+      p.textContent=n;p.onclick=()=>setWallet(n);
+      row.appendChild(p);
+    });
+  }
+  // overview wallet filter
+  const ovSel=document.getElementById('ov-wallet-filter');
+  if(ovSel){const prev=ovSel.value;ovSel.innerHTML='<option value="">All Wallets</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');if(names.includes(prev))ovSel.value=prev;}
+}
+
+function openWalletModal(){
+  renderWalletMgr();
+  document.getElementById('wallet-modal').classList.remove('hidden');
+  document.getElementById('new-wallet-name').value='';
+  document.getElementById('new-wallet-color').value=SWATCH_COLORS[0];
+  selectedSwatchColor=SWATCH_COLORS[0];
+  const sw=document.getElementById('wallet-color-swatches');
+  sw.innerHTML=SWATCH_COLORS.map(c=>`<div class="color-swatch${c===selectedSwatchColor?' selected':''}" style="background:${c}" onclick="selectSwatch('${c}')"></div>`).join('');
+}
+function closeWalletModal(){document.getElementById('wallet-modal').classList.add('hidden');rebuildWalletDropdowns();renderAll();}
+
+function selectSwatch(c){
+  selectedSwatchColor=c;
+  document.getElementById('new-wallet-color').value=c;
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.toggle('selected',s.style.background===c||s.style.backgroundColor===c));
+}
+
+function renderWalletMgr(){
+  const c=document.getElementById('wallet-mgr-list');
+  c.innerHTML=walletsDb.map((w,i)=>`<div class="wallet-mgr-row"><div class="wallet-dot" style="background:${w.color}"></div><div style="flex:1;font-size:13px;font-weight:600;margin-left:10px">${esc(w.name)}</div>${walletsDb.length>1?`<button class="btn-danger" onclick="removeWallet(${i})">✕</button>`:''}</div>`).join('');
+}
+
+function addWallet(){
+  const name=document.getElementById('new-wallet-name').value.trim();
+  const color=document.getElementById('new-wallet-color').value||selectedSwatchColor||'#64748B';
+  if(!name){toast('Enter wallet name');return;}
+  if(walletsDb.find(w=>w.name.toLowerCase()===name.toLowerCase())){toast('Wallet already exists');return;}
+  walletsDb.push({name,color});
+  saveWallets();renderWalletMgr();
+  document.getElementById('new-wallet-name').value='';
+  toast(`Wallet "${name}" added ✓`);
+}
+
+function removeWallet(i){
+  const w=walletsDb[i];
+  if(db.some(e=>e.wallet===w.name)){if(!confirm(`"${w.name}" has transactions. Remove anyway?`))return;}
+  walletsDb.splice(i,1);saveWallets();renderWalletMgr();
+  toast(`Removed "${w.name}"`);
+}
+
+// ── EDIT TRANSACTION ────────────────────────────────────────────────────────
+function buildEditCatDrop(type){
+  const cats=CATS[type]||CATS.expense;
+  const sel=document.getElementById('edit-cat');
+  const prev=sel.value;
+  sel.innerHTML=cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if(cats.includes(prev))sel.value=prev;
+}
+function onEditTypeChange(){buildEditCatDrop(document.getElementById('edit-type').value);}
+
+function openEdit(id){
+  const e=db.find(x=>x.id===id);if(!e||e.isTransfer)return;
+  document.getElementById('edit-id').value=id;
+  document.getElementById('edit-type').value=e.type;
+  buildEditCatDrop(e.type);
+  document.getElementById('edit-cat').value=e.cat||'';
+  document.getElementById('edit-desc').value=e.desc||'';
+  document.getElementById('edit-amt').value=e.amt;
+  document.getElementById('edit-date').value=e.date;
+  document.getElementById('edit-recurring').checked=!!e.isRecurring;
+  // populate wallet dropdown
+  const ws=document.getElementById('edit-wallet');
+  ws.innerHTML=walletsDb.map(w=>`<option value="${esc(w.name)}">${esc(w.name)}</option>`).join('');
+  ws.value=e.wallet;
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+function closeEdit(){document.getElementById('edit-modal').classList.add('hidden');}
+
+function saveEdit(){
+  const id=parseInt(document.getElementById('edit-id').value);
+  const idx=db.findIndex(e=>e.id===id);if(idx===-1)return;
+  const amt=parseFloat(document.getElementById('edit-amt').value);
+  const date=document.getElementById('edit-date').value;
+  if(!amt||amt<=0){toast('Enter valid amount');return;}
+  if(!date){toast('Select date');return;}
+  db[idx]={...db[idx],
+    type:document.getElementById('edit-type').value,
+    wallet:document.getElementById('edit-wallet').value,
+    cat:document.getElementById('edit-cat').value,
+    desc:document.getElementById('edit-desc').value.trim()||document.getElementById('edit-cat').value,
+    amt,date,
+    isRecurring:document.getElementById('edit-recurring').checked
+  };
+  save();closeEdit();toast('Updated ✓');
+}
+
+// ── PIN LOCK ─────────────────────────────────────────────────────────────────
+let pinBuffer='',pinSetupBuffer='',pinSetupStep=0,pinSetupFirst='';
+
+function initPin(){
+  const saved=localStorage.getItem(PIN_KEY);
+  if(saved){
+    const ps=document.getElementById('pin-screen');
+    ps.style.display='flex';
+  }
+}
+
+function pinKey(d){
+  if(pinBuffer.length>=4)return;
+  pinBuffer+=d;
+  updatePinDots('pin-dots',pinBuffer.length);
+  if(pinBuffer.length===4)setTimeout(checkPin,120);
+}
+function pinDel(){if(pinBuffer.length>0){pinBuffer=pinBuffer.slice(0,-1);updatePinDots('pin-dots',pinBuffer.length);}}
+
+function checkPin(){
+  const saved=localStorage.getItem(PIN_KEY);
+  if(pinBuffer===saved){
+    document.getElementById('pin-screen').style.display='none';
+    document.getElementById('pin-err').innerText='';
+  } else {
+    document.getElementById('pin-err').innerText='Incorrect PIN';
+    pinBuffer='';
+    updatePinDots('pin-dots',0);
+    setTimeout(()=>document.getElementById('pin-err').innerText='',1500);
+  }
+}
+
+function updatePinDots(containerId,count){
+  const dots=document.getElementById(containerId).querySelectorAll('.pin-dot');
+  dots.forEach((d,i)=>d.classList.toggle('filled',i<count));
+}
+
+function openPinSetup(){
+  pinSetupBuffer='';pinSetupStep=0;pinSetupFirst='';
+  document.getElementById('pin-setup-title').innerText= localStorage.getItem(PIN_KEY)?'🔐 Change PIN':'🔐 Set PIN';
+  document.getElementById('pin-setup-sub').innerText='Enter a new 4-digit PIN.';
+  document.getElementById('pin-setup-err').innerText='';
+  updatePinDots('pin-setup-dots',0);
+  document.getElementById('pin-setup-modal').classList.remove('hidden');
+}
+function closePinSetup(){document.getElementById('pin-setup-modal').classList.add('hidden');}
+
+function pinSetupKey(d){
+  if(pinSetupBuffer.length>=4)return;
+  pinSetupBuffer+=d;
+  updatePinDots('pin-setup-dots',pinSetupBuffer.length);
+  if(pinSetupBuffer.length===4)setTimeout(handlePinSetupFull,120);
+}
+function pinSetupDel(){if(pinSetupBuffer.length>0){pinSetupBuffer=pinSetupBuffer.slice(0,-1);updatePinDots('pin-setup-dots',pinSetupBuffer.length);}}
+
+function handlePinSetupFull(){
+  if(pinSetupStep===0){
+    pinSetupFirst=pinSetupBuffer;
+    pinSetupStep=1;
+    pinSetupBuffer='';
+    document.getElementById('pin-setup-sub').innerText='Confirm your PIN.';
+    updatePinDots('pin-setup-dots',0);
+  } else {
+    if(pinSetupBuffer===pinSetupFirst){
+      localStorage.setItem(PIN_KEY,pinSetupBuffer);
+      closePinSetup();toast('PIN set ✓');
+    } else {
+      document.getElementById('pin-setup-err').innerText="PINs don't match — try again";
+      pinSetupBuffer='';pinSetupStep=0;pinSetupFirst='';
+      document.getElementById('pin-setup-sub').innerText='Enter a new 4-digit PIN.';
+      updatePinDots('pin-setup-dots',0);
+    }
+  }
+}
+
+// ── FREE BENEFIT REPEAT ──────────────────────────────────────────────────────
+function renderBenefitQuickPicks(){
+  const seen=new Map();
+  fbDb.slice().reverse().forEach(x=>{
+    const key=x.desc+'|'+x.from+'|'+x.cat;
+    if(!seen.has(key))seen.set(key,x);
+  });
+  const unique=[...seen.values()].slice(0,8);
+  const row=document.getElementById('fb-quick-row');
+  const chips=document.getElementById('fb-quick-chips');
+  if(!unique.length){row.style.display='none';return;}
+  row.style.display='block';
+  chips.innerHTML=unique.map(x=>`<div class="quick-chip" style="font-size:10px;padding:5px 10px" onclick="repeatBenefit(${x.id})">${esc(x.desc)}${x.from?' · '+esc(x.from):''}</div>`).join('');
+}
+
+function repeatBenefit(id){
+  const x=fbDb.find(b=>b.id===id);if(!x)return;
+  document.getElementById('fb-desc').value=x.desc;
+  document.getElementById('fb-from').value=x.from||'';
+  document.getElementById('fb-cat').value=x.cat;
+  document.getElementById('fb-amt').value=x.amt;
+  document.getElementById('fb-date').value=new Date().toISOString().split('T')[0];
+  toast('Filled from past — adjust if needed');
+}
+
+
+
 // INIT
 document.getElementById('f-date').value=new Date().toISOString().split('T')[0];
 document.getElementById('fb-date').value=new Date().toISOString().split('T')[0];
+rebuildWalletDropdowns();
 buildCatDrop('expense');onTypeChange();renderAll();
+renderBenefitQuickPicks();
+initPin();
 </script>
 </body>
 </html>

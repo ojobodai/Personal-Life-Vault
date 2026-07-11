@@ -469,17 +469,36 @@ select option { background: #1C2235; }
   <!-- GOALS SCREEN -->
   <div id="screen-goals" class="screen">
     <div class="screen-header">
-      <div class="screen-title">Goals & Budgets</div>
-      <div class="screen-sub">Savings targets and spending caps</div>
+      <div class="screen-title">Spending & Budgets</div>
+      <div class="screen-sub">Daily limits and spending caps</div>
     </div>
 
     <div class="card" style="margin-top:16px">
       <div class="card-title">
-        <span>🎯 Savings Goals</span>
-        <button class="btn-ghost" style="font-size:10px;padding:6px 12px" onclick="openGoalModal()">+ New Goal</button>
+        <span>📉 Daily Spending Limit <span id="limit-month-label" style="font-weight:400;color:var(--muted);font-size:9px;margin-left:4px"></span></span>
+        <button class="btn-ghost" style="font-size:10px;padding:6px 12px" onclick="openLimitModal()">Set Limit</button>
       </div>
-      <div id="goals-list"></div>
-      <div class="empty hidden" id="goals-empty">No goals yet — add one!</div>
+      <div class="empty hidden" id="limit-empty">Set a daily spending limit to start tracking — e.g. ₵20/day</div>
+      <div id="limit-content">
+        <div style="display:flex;gap:10px;margin-bottom:14px">
+          <div style="flex:1;background:var(--surface2);border-radius:14px;padding:12px;text-align:center">
+            <div style="font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Daily Limit</div>
+            <div style="font-size:16px;font-weight:800;margin-top:4px" id="limit-daily-val">₵0.00</div>
+          </div>
+          <div style="flex:1;background:var(--surface2);border-radius:14px;padding:12px;text-align:center">
+            <div style="font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px" id="limit-balance-label">Balance</div>
+            <div style="font-size:16px;font-weight:800;margin-top:4px" id="limit-balance-val">₵0.00</div>
+          </div>
+        </div>
+        <div id="limit-message" style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5"></div>
+        <div style="overflow-x:auto;scrollbar-width:thin;padding-bottom:2px">
+          <div id="limit-bars" style="display:flex;align-items:flex-end;gap:5px;height:104px;min-width:max-content"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px">
+          <span style="font-size:8px;color:var(--muted)">green = under limit · red = over limit</span>
+          <span style="font-size:8px;color:var(--muted)">dashed line = daily limit</span>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -573,7 +592,7 @@ select option { background: #1C2235; }
     </button>
     <button class="nav-item" id="nav-goals" onclick="showScreen('goals')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-      <div class="nav-label">Goals</div><div class="nav-indicator"></div>
+      <div class="nav-label">Spending</div><div class="nav-indicator"></div>
     </button>
     <button class="nav-item" id="nav-wallets" onclick="showScreen('wallets')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
@@ -583,21 +602,14 @@ select option { background: #1C2235; }
 </div>
 
 <!-- MODALS -->
-<div id="goal-modal" class="modal-bg hidden">
+<div id="limit-modal" class="modal-bg hidden">
   <div class="modal-sheet">
-    <div class="modal-title">🎯 New Savings Goal</div>
-    <div class="field-row"><input type="text" id="g-name" placeholder="Goal name (e.g. Emergency Fund)"></div>
-    <div class="field-row c2">
-      <input type="number" id="g-target" step="0.01" placeholder="Target ₵">
-      <input type="number" id="g-saved" step="0.01" placeholder="Already saved ₵">
-    </div>
-    <div class="field-row c2">
-      <input type="date" id="g-deadline">
-      <input type="text" id="g-note" placeholder="Note (optional)">
-    </div>
+    <div class="modal-title">📉 Set Daily Spending Limit</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px">The most you want to spend per day this month. Spend less on some days and you'll bank the difference to use on others.</p>
+    <div class="field-row"><input type="number" id="limit-input" step="0.01" placeholder="Daily limit ₵ (e.g. 20)"></div>
     <div class="modal-actions">
-      <button class="btn-primary" onclick="saveGoal()">Save Goal</button>
-      <button class="btn-ghost" onclick="closeGoalModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveDailyLimit()">Save</button>
+      <button class="btn-ghost" onclick="closeLimitModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -637,10 +649,10 @@ select option { background: #1C2235; }
 </div>
 
 <script>
-const DB_KEY='hub_finapp_db', FB_KEY='hub_finapp_fb', GOALS_KEY='hub_finapp_goals', BUDGETS_KEY='hub_finapp_budgets', QUICK_KEY='hub_finapp_quick', WALLET_KEY='hub_finapp_wallets', PIN_KEY='hub_finapp_pin';
+const DB_KEY='hub_finapp_db', FB_KEY='hub_finapp_fb', DAILY_LIMIT_KEY='hub_finapp_daily_limits', BUDGETS_KEY='hub_finapp_budgets', QUICK_KEY='hub_finapp_quick', WALLET_KEY='hub_finapp_wallets', PIN_KEY='hub_finapp_pin';
 let db=JSON.parse(localStorage.getItem(DB_KEY))||[];
 let fbDb=JSON.parse(localStorage.getItem(FB_KEY))||[];
-let goalsDb=JSON.parse(localStorage.getItem(GOALS_KEY))||[];
+let dailyLimits=JSON.parse(localStorage.getItem(DAILY_LIMIT_KEY))||{};
 let budgetsDb=JSON.parse(localStorage.getItem(BUDGETS_KEY))||[];
 let quickDb=JSON.parse(localStorage.getItem(QUICK_KEY))||[];
 const DEFAULT_WALLETS=[{name:'Cash',color:'#F59E0B'},{name:'MoMo',color:'#6366F1'},{name:'Stanbic',color:'#818CF8'},{name:'Ecobank',color:'#10B981'},{name:'Other',color:'#0EA5E9'}];
@@ -660,10 +672,11 @@ const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'
 const fmt=n=>'₵'+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const save=()=>{localStorage.setItem(DB_KEY,JSON.stringify(db));renderAll();};
 const saveFb=()=>localStorage.setItem(FB_KEY,JSON.stringify(fbDb));
-const saveGoals=()=>localStorage.setItem(GOALS_KEY,JSON.stringify(goalsDb));
+const saveDailyLimitsStore=()=>localStorage.setItem(DAILY_LIMIT_KEY,JSON.stringify(dailyLimits));
 const saveBudgets=()=>localStorage.setItem(BUDGETS_KEY,JSON.stringify(budgetsDb));
 const saveQuick=()=>localStorage.setItem(QUICK_KEY,JSON.stringify(quickDb));
 const mf=e=>{const[ey,em]=e.date.split('-');return parseInt(em)-1===viewDate.getMonth()&&parseInt(ey)===viewDate.getFullYear();};
+const ymKey=d=>`${d.getFullYear()}-${d.getMonth()}`;
 
 function toast(msg){const t=document.getElementById('toast');t.innerText=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 
@@ -674,7 +687,7 @@ function showScreen(name){
   document.getElementById('nav-'+name).classList.add('active');
   currentScreen=name;
   if(name==='overview')renderOverview();
-  if(name==='goals'){renderGoals();renderBudgets();renderRecurring();}
+  if(name==='goals'){renderDailyTracker();renderBudgets();renderRecurring();}
   if(name==='wallets')renderWallets();
 }
 
@@ -903,41 +916,77 @@ function renderBenefitsList(){
 
 function deleteBenefit(id){fbDb=fbDb.filter(x=>x.id!==id);saveFb();renderBenefitsList();toast('Removed');}
 
-function openGoalModal(){document.getElementById('goal-modal').classList.remove('hidden');['g-name','g-target','g-saved','g-deadline','g-note'].forEach(id=>document.getElementById(id).value='');}
-function closeGoalModal(){document.getElementById('goal-modal').classList.add('hidden');}
+function openLimitModal(){
+  document.getElementById('limit-input').value=dailyLimits[ymKey(viewDate)]||'';
+  document.getElementById('limit-modal').classList.remove('hidden');
+}
+function closeLimitModal(){document.getElementById('limit-modal').classList.add('hidden');}
 
-function saveGoal(){
-  const name=document.getElementById('g-name').value.trim();
-  const target=parseFloat(document.getElementById('g-target').value);
-  const saved=parseFloat(document.getElementById('g-saved').value)||0;
-  const deadline=document.getElementById('g-deadline').value;
-  const note=document.getElementById('g-note').value.trim();
-  if(!name||!target||target<=0){toast('Enter name and target');return;}
-  goalsDb.push({id:Date.now(),name,target,saved,deadline,note});
-  saveGoals();closeGoalModal();renderGoals();toast('Goal saved ✓');
+function saveDailyLimit(){
+  const val=parseFloat(document.getElementById('limit-input').value);
+  if(!val||val<=0){toast('Enter a valid daily limit');return;}
+  dailyLimits[ymKey(viewDate)]=val;
+  saveDailyLimitsStore();closeLimitModal();renderDailyTracker();toast('Daily limit saved ✓');
 }
 
-function deleteGoal(id){goalsDb=goalsDb.filter(g=>g.id!==id);saveGoals();renderGoals();toast('Removed');}
+function renderDailyTracker(){
+  document.getElementById('limit-month-label').innerText='· '+viewDate.toLocaleString('default',{month:'short',year:'numeric'});
+  const limit=dailyLimits[ymKey(viewDate)];
+  const empty=document.getElementById('limit-empty');
+  const content=document.getElementById('limit-content');
+  if(!limit){empty.classList.remove('hidden');content.style.display='none';return;}
+  empty.classList.add('hidden');content.style.display='block';
 
-function addToGoal(id){
-  const amt=parseFloat(prompt('How much to add? (₵)'));
-  if(!amt||amt<=0)return;
-  const g=goalsDb.find(g=>g.id===id);
-  if(g){g.saved=(g.saved||0)+amt;saveGoals();renderGoals();toast(`Added ${fmt(amt)} to "${g.name}"`);}
-}
+  const y=viewDate.getFullYear(),m=viewDate.getMonth();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const today=new Date();
+  const isCurrentMonth=today.getFullYear()===y&&today.getMonth()===m;
+  const isFutureMonth=new Date(y,m,1)>new Date(today.getFullYear(),today.getMonth(),1);
+  const lastDay=isFutureMonth?0:(isCurrentMonth?today.getDate():daysInMonth);
 
-function renderGoals(){
-  const c=document.getElementById('goals-list');
-  const e=document.getElementById('goals-empty');
-  if(!goalsDb.length){c.innerHTML='';e.classList.remove('hidden');return;}
-  e.classList.add('hidden');
-  c.innerHTML=goalsDb.map(g=>{
-    const pct=Math.min(100,((g.saved||0)/g.target)*100);
-    const remaining=Math.max(0,g.target-(g.saved||0));
-    const color=pct>=100?'var(--green)':pct>=60?'var(--accent)':'var(--amber)';
-    const daysLeft=g.deadline?Math.ceil((new Date(g.deadline)-new Date())/86400000):null;
-    const urgencyTag=daysLeft!==null&&daysLeft<=30&&pct<100?`<span class="tag ${daysLeft<=0?'tag-overdue':'tag-recurring'}">${daysLeft<=0?'Overdue':daysLeft+'d left'}</span>`:'';
-    return `<div class="goal-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><div><div style="font-size:13px;font-weight:700">${esc(g.name)}${urgencyTag}</div>${g.note?`<div style="font-size:10px;color:var(--muted);font-style:italic;margin-top:2px">${esc(g.note)}</div>`:''} ${g.deadline?`<div style="font-size:9px;color:var(--muted);margin-top:2px">Due ${g.deadline}</div>`:''}</div><div style="text-align:right;flex-shrink:0;margin-left:12px"><div style="font-size:12px;font-weight:800;color:${color}">${pct.toFixed(0)}%</div><div style="font-size:9px;color:var(--muted)">${fmt(g.saved||0)} / ${fmt(g.target)}</div></div></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px"><span style="font-size:10px;color:var(--muted)">${pct>=100?'🎉 Complete!':fmt(remaining)+' to go'}</span><div style="display:flex;gap:6px"><button class="btn-ghost" style="font-size:10px;padding:5px 10px" onclick="addToGoal(${g.id})">+ Add</button><button class="btn-ghost" style="font-size:10px;padding:5px 10px;color:rgba(244,63,94,0.7);border-color:rgba(244,63,94,0.18)" onclick="deleteGoal(${g.id})">Remove</button></div></div></div>`;
+  let running=0,days=[];
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const spent=db.filter(e=>e.date===ds&&e.type==='expense'&&!e.isTransfer).reduce((s,e)=>s+e.amt,0);
+    const isFuture=d>lastDay;
+    if(!isFuture)running+=(limit-spent);
+    days.push({d,spent,isFuture});
+  }
+
+  document.getElementById('limit-daily-val').innerText=fmt(limit);
+  const balEl=document.getElementById('limit-balance-val');
+  const balLabel=document.getElementById('limit-balance-label');
+  balEl.innerText=(running>=0?'+':'−')+fmt(Math.abs(running));
+  balEl.style.color=running>=0?'var(--green)':'var(--red)';
+  balLabel.innerText=running>=0?'Banked Extra':'Over Budget';
+
+  const msgEl=document.getElementById('limit-message');
+  if(isFutureMonth){
+    msgEl.innerText=`This month hasn't started yet. Your limit is set to ${fmt(limit)}/day.`;
+  } else {
+    const remainingDays=daysInMonth-lastDay;
+    if(remainingDays>0){
+      const safePerDay=(limit*remainingDays+running)/remainingDays;
+      msgEl.innerHTML=safePerDay>=0
+        ? `You can spend up to <strong style="color:var(--text)">${fmt(safePerDay)}/day</strong> for the remaining ${remainingDays} day${remainingDays>1?'s':''} and stay on target.`
+        : `You're over budget — even spending ₵0 for the remaining ${remainingDays} day${remainingDays>1?'s':''} won't fully recover it. Try to cut back where you can.`;
+    } else {
+      msgEl.innerText=running>=0?`🎉 You finished the month ${fmt(running)} under budget.`:`You went ${fmt(Math.abs(running))} over budget this month.`;
+    }
+  }
+
+  const maxVal=Math.max(limit,...days.map(x=>x.spent),1)*1.15;
+  document.getElementById('limit-bars').innerHTML=days.map(x=>{
+    const barH=Math.max(3,(x.spent/maxVal)*88);
+    const limitH=(limit/maxVal)*88;
+    const color=x.isFuture?'rgba(255,255,255,0.06)':(x.spent<=limit?'var(--green)':'var(--red)');
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;width:16px">
+      <div style="position:relative;height:88px;width:10px;display:flex;align-items:flex-end">
+        <div style="position:absolute;bottom:${limitH}px;left:-3px;right:-3px;border-top:1px dashed rgba(255,255,255,0.28)"></div>
+        <div style="width:100%;height:${barH}px;background:${color};border-radius:3px 3px 0 0;transition:height .3s" title="Day ${x.d}: ${fmt(x.spent)} (limit ${fmt(limit)})"></div>
+      </div>
+      <span style="font-size:7px;color:var(--muted)">${x.d}</span>
+    </div>`;
   }).join('');
 }
 
@@ -1087,7 +1136,7 @@ function doImport(){
 function renderAll(){
   renderLedger();renderQuick();
   if(currentScreen==='overview')renderOverview();
-  if(currentScreen==='goals'){renderGoals();renderBudgets();renderRecurring();}
+  if(currentScreen==='goals'){renderDailyTracker();renderBudgets();renderRecurring();}
   if(currentScreen==='wallets')renderWallets();
 }
 

@@ -477,7 +477,10 @@ select option { background: #1C2235; }
     <div class="card" style="margin-top:16px">
       <div class="card-title">
         <span>📉 Daily Spending Limit <span id="limit-month-label" style="font-weight:400;color:var(--muted);font-size:9px;margin-left:4px"></span></span>
-        <button class="btn-ghost" style="font-size:10px;padding:6px 12px" onclick="openLimitModal()">Set Limit</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" style="font-size:10px;padding:6px 10px" onclick="openDailyExcludeModal()">Exclude Cats</button>
+          <button class="btn-ghost" style="font-size:10px;padding:6px 12px" onclick="openLimitModal()">Set Limit</button>
+        </div>
       </div>
       <div class="empty hidden" id="limit-empty">Set a daily spending limit to start tracking — e.g. ₵20/day</div>
       <div id="limit-content">
@@ -491,6 +494,7 @@ select option { background: #1C2235; }
             <div style="font-size:16px;font-weight:800;margin-top:4px" id="limit-balance-val">₵0.00</div>
           </div>
         </div>
+        <div id="limit-excluded-note" style="font-size:9px;color:var(--muted);margin-bottom:8px"></div>
         <div id="limit-message" style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5"></div>
         <div style="overflow-x:auto;scrollbar-width:thin;padding-bottom:2px">
           <div id="limit-bars" style="display:flex;align-items:flex-end;gap:5px;height:104px;min-width:max-content"></div>
@@ -640,6 +644,17 @@ select option { background: #1C2235; }
   </div>
 </div>
 
+<div id="daily-exclude-modal" class="modal-bg hidden">
+  <div class="modal-sheet">
+    <div class="modal-title">🚫 Exclude From Daily Limit</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Tick categories you don't want counted toward your daily spending limit — useful if you've already set a separate budget limit for them.</p>
+    <div id="daily-exclude-list" style="max-height:280px;overflow-y:auto;scrollbar-width:thin"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="closeDailyExcludeModal()">Done</button>
+    </div>
+  </div>
+</div>
+
 <div id="loan-modal" class="modal-bg hidden">
   <div class="modal-sheet">
     <div class="modal-title">💳 Log Loan Payment</div>
@@ -688,6 +703,9 @@ const DEFAULT_EXPENSE_CATS=[...CATS.expense];
 const savedCats=JSON.parse(localStorage.getItem(CAT_KEY));
 if(savedCats&&savedCats.length)CATS.expense=savedCats;
 const saveCatsStore=()=>localStorage.setItem(CAT_KEY,JSON.stringify(CATS.expense));
+const DAILY_EXCLUDE_KEY='hub_finapp_daily_exclude';
+let excludedDailyCats=JSON.parse(localStorage.getItem(DAILY_EXCLUDE_KEY))||[];
+const saveExcludedCats=()=>localStorage.setItem(DAILY_EXCLUDE_KEY,JSON.stringify(excludedDailyCats));
 const getWalletColors=()=>Object.fromEntries(walletsDb.map(w=>[w.name,w.color]));
 const WALLET_COLORS_STATIC={MoMo:'#6366F1',Stanbic:'#818CF8',Ecobank:'#10B981',Cash:'#F59E0B',Other:'#0EA5E9'};
 const CAT_COLORS=['#6366F1','#8B5CF6','#EC4899','#F59E0B','#10B981','#3B82F6','#EF4444','#14B8A6','#F97316','#A855F7','#06B6D4','#84CC16'];
@@ -803,7 +821,7 @@ function renderLedger(){
     const color=e.isTransfer?'var(--sky)':isInc?'var(--green)':'var(--red)';
     const prefix=isExp?'−':isInc?'+':'';
     const isOverdue=e.isRecurring&&!thisMonthLogged.has(e.desc+'|'+e.wallet)&&new Date(e.date).getMonth()!==now.getMonth();
-    const tags=(e.isTransfer?'<span class="tag tag-transfer">transfer</span>':'')+(e.isRecurring?'<span class="tag tag-recurring">recurring</span>':'')+(e.type==='lend'||e.type==='repay'?'<span class="tag tag-loan">loan</span>':'')+(isOverdue?'<span class="tag tag-overdue">overdue</span>':'');
+    const tags=(e.isTransfer?'<span class="tag tag-transfer">transfer</span>':'')+(e.isRecurring?'<span class="tag tag-recurring">recurring</span>':'')+(e.type==='lend'||e.type==='repay'||e.type==='writeoff'?'<span class="tag tag-loan">loan</span>':'')+(isOverdue?'<span class="tag tag-overdue">overdue</span>':'');
     return `<div class="ledger-item"><div style="flex:1;min-width:0"><div class="ledger-desc">${esc(e.desc)}</div><div class="ledger-meta">${e.date.replace(/-/g,'/')} · ${esc(e.cat||'')}${tags}</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="ledger-amt" style="color:${color}">${prefix}${fmt(e.amt)}</div><button class="btn-danger" style="color:rgba(91,110,245,0.4)" onclick="openEdit(${e.id})">✎</button><button class="btn-danger" onclick="deleteEntry(${e.id})">✕</button></div></div>`;
   }).join('');
 }
@@ -971,11 +989,13 @@ function renderDailyTracker(){
   let running=0,days=[];
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const spent=db.filter(e=>e.date===ds&&e.type==='expense'&&!e.isTransfer).reduce((s,e)=>s+e.amt,0);
+    const spent=db.filter(e=>e.date===ds&&e.type==='expense'&&!e.isTransfer&&!excludedDailyCats.includes(e.cat)).reduce((s,e)=>s+e.amt,0);
     const isFuture=d>lastDay;
     if(!isFuture)running+=(limit-spent);
     days.push({d,spent,isFuture});
   }
+
+  document.getElementById('limit-excluded-note').innerText=excludedDailyCats.length?`Not counted: ${excludedDailyCats.join(', ')}`:'';
 
   document.getElementById('limit-daily-val').innerText=fmt(limit);
   const balEl=document.getElementById('limit-balance-val');
@@ -1055,6 +1075,25 @@ function resetCats(){
   saveCatsStore();renderCatsMgr();refreshCatsEverywhere();toast('Reset ✓');
 }
 
+function openDailyExcludeModal(){renderDailyExcludeList();document.getElementById('daily-exclude-modal').classList.remove('hidden');}
+function closeDailyExcludeModal(){document.getElementById('daily-exclude-modal').classList.add('hidden');renderDailyTracker();}
+
+function renderDailyExcludeList(){
+  document.getElementById('daily-exclude-list').innerHTML=CATS.expense.map(c=>{
+    const checked=excludedDailyCats.includes(c);
+    return `<label style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <input type="checkbox" style="width:auto;accent-color:var(--accent)" ${checked?'checked':''} onchange="toggleDailyExclude('${esc(c)}',this.checked)">
+      <span style="font-size:13px;font-weight:600;flex:1">${esc(c)}</span>
+    </label>`;
+  }).join('');
+}
+
+function toggleDailyExclude(cat,checked){
+  if(checked){if(!excludedDailyCats.includes(cat))excludedDailyCats.push(cat);}
+  else{excludedDailyCats=excludedDailyCats.filter(c=>c!==cat);}
+  saveExcludedCats();renderDailyTracker();
+}
+
 function saveBudget(){
   const cat=document.getElementById('b-cat').value;
   const limit=parseFloat(document.getElementById('b-limit').value);
@@ -1111,6 +1150,7 @@ function renderWallets(){
   const loanMap={};
   db.filter(e=>e.type==='lend').forEach(e=>{const k=e.desc.replace(/^LENT:\s*/i,'');loanMap[k]=(loanMap[k]||0)+e.amt;});
   db.filter(e=>e.type==='repay').forEach(e=>{const k=e.desc.replace(/^REPAY:\s*/i,'');const match=Object.keys(loanMap).find(kk=>k.includes(kk)||kk.includes(k));if(match)loanMap[match]-=e.amt;});
+  db.filter(e=>e.type==='writeoff').forEach(e=>{const k=e.desc.replace(/^WRITEOFF:\s*/i,'');const match=Object.keys(loanMap).find(kk=>k.includes(kk)||kk.includes(k));if(match)loanMap[match]-=e.amt;});
   const outstanding=Object.entries(loanMap).filter(([,v])=>v>0.01);
   const totalLoans=outstanding.reduce((s,[,v])=>s+v,0);
   const totalBal=balances.reduce((s,b)=>s+b.bal,0);
@@ -1150,7 +1190,7 @@ function renderWallets(){
   document.getElementById('loans-total').innerText=fmt(totalLoans);
   if(!outstanding.length){loansEl.innerHTML='';loansEmpty.classList.remove('hidden');return;}
   loansEmpty.classList.add('hidden');
-  loansEl.innerHTML=outstanding.map(([name,amt])=>`<div class="loan-row"><div><div style="font-size:13px;font-weight:600">${esc(name)}</div><div style="font-size:10px;color:var(--muted)">Outstanding</div></div><div style="display:flex;align-items:center;gap:10px"><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);font-weight:500">${fmt(amt)}</div><button class="btn-ghost" style="font-size:10px;padding:6px 10px" onclick="openLoanPayment('${esc(name)}',${amt})">Log Payment</button></div></div>`).join('');
+  loansEl.innerHTML=outstanding.map(([name,amt])=>`<div class="loan-row"><div><div style="font-size:13px;font-weight:600">${esc(name)}</div><div style="font-size:10px;color:var(--muted)">Outstanding</div></div><div style="display:flex;align-items:center;gap:8px"><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);font-weight:500">${fmt(amt)}</div><button class="btn-ghost" style="font-size:10px;padding:6px 9px" onclick="openLoanPayment('${esc(name)}',${amt})">Log Payment</button><button class="btn-ghost" style="font-size:10px;padding:6px 9px;color:rgba(244,63,94,0.7);border-color:rgba(244,63,94,0.18)" onclick="cancelDebt('${esc(name)}',${amt})">Cancel Debt</button></div></div>`).join('');
 }
 
 function openLoanPayment(name,outstanding){
@@ -1173,6 +1213,12 @@ function saveLoanPayment(){
   toast(amt>=outstanding-0.01?`${name} fully repaid ✓`:`Logged ${fmt(amt)} partial payment from ${name}`);
 }
 
+function cancelDebt(name,outstanding){
+  if(!confirm(`Cancel ${fmt(outstanding)} owed by ${name}? This writes off the debt as unpaid — it won't add money to any wallet, it just clears it from Outstanding Loans.`))return;
+  db.push({id:Date.now(),desc:`WRITEOFF: ${name}`,amt:outstanding,date:new Date().toISOString().split('T')[0],type:'writeoff',wallet:'Cash',cat:'Loan Write-off'});
+  save();toast(`${name}'s debt cancelled`);
+}
+
 function exportJSON(){
   const blob=new Blob([JSON.stringify({transactions:db,freeBenefits:fbDb,exportDate:new Date().toISOString()},null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`hub_finapp_${new Date().toISOString().split('T')[0]}.json`;a.click();URL.revokeObjectURL(a.href);
@@ -1181,7 +1227,7 @@ function exportJSON(){
 
 function exportCSV(){
   const headers=['Date','Description','Category','Type','Wallet','Amount','Recurring'];
-  const rows=db.map(e=>[e.date,'"'+(e.desc||'').replace(/"/g,'""')+'"','"'+(e.cat||'').replace(/"/g,'""')+'"',e.type,e.wallet,(e.type==='expense'||e.type==='lend'?-e.amt:e.amt),e.isRecurring?'Yes':'']);
+  const rows=db.map(e=>[e.date,'"'+(e.desc||'').replace(/"/g,'""')+'"','"'+(e.cat||'').replace(/"/g,'""')+'"',e.type,e.wallet,(e.type==='expense'||e.type==='lend'?-e.amt:(e.type==='writeoff'?0:e.amt)),e.isRecurring?'Yes':'']);
   const csv=[headers.join(','),...rows.map(r=>r.join(','))].join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`hub_finapp_${new Date().toISOString().split('T')[0]}.csv`;a.click();URL.revokeObjectURL(a.href);

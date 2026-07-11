@@ -277,6 +277,7 @@ select option { background: #1C2235; }
         <div class="icon-btn" onclick="openWalletModal()" title="Wallets">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>
         </div>
+        <div class="icon-btn" onclick="openCatsModal()" title="Manage Categories" style="font-size:14px">🏷️</div>
         <div class="icon-btn" onclick="openPinSetup()" title="PIN Lock">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
@@ -509,13 +510,6 @@ select option { background: #1C2235; }
       <div id="budget-list"></div>
       <div class="empty hidden" id="budget-empty">No budget limits set</div>
     </div>
-
-    <div class="card">
-      <div class="card-title">🔄 Recurring Transactions</div>
-      <p style="font-size:10px;color:var(--muted);margin-bottom:10px">Overdue = not yet logged this month</p>
-      <div id="recurring-list"></div>
-      <div class="empty hidden" id="recurring-empty">No recurring transactions</div>
-    </div>
   </div>
 
   <!-- WALLETS SCREEN -->
@@ -620,17 +614,42 @@ select option { background: #1C2235; }
     <div class="field-row">
       <select id="b-cat">
         <option value="">— Select Category —</option>
-        <option>Food &amp; Drinks</option><option>Transport</option><option>Housing &amp; Utilities</option>
-        <option>Health</option><option>Communication</option><option>Clothing &amp; Personal Care</option>
-        <option>Education</option><option>Entertainment</option><option>Family &amp; Relationships</option>
-        <option>Offering &amp; Tithes</option><option>Business Expense</option><option>Bank &amp; Fees</option>
-        <option>Savings &amp; Investment</option><option>Other Expense</option>
       </select>
     </div>
     <div class="field-row"><input type="number" id="b-limit" step="0.01" placeholder="Monthly limit ₵"></div>
     <div class="modal-actions">
       <button class="btn-primary" onclick="saveBudget()">Save</button>
       <button class="btn-ghost" onclick="closeBudgetModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="cats-modal" class="modal-bg hidden">
+  <div class="modal-sheet">
+    <div class="modal-title">🏷️ Manage Expense Categories</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px">Remove categories you don't use — they'll no longer show up when logging expenses or setting budget limits. Past records keep their original category.</p>
+    <div class="field-row" style="display:flex;gap:8px">
+      <input type="text" id="new-cat-input" placeholder="New category name" style="flex:1">
+      <button class="btn-ghost" style="flex-shrink:0" onclick="addCat()">+ Add</button>
+    </div>
+    <div id="cats-list" style="max-height:260px;overflow-y:auto;scrollbar-width:thin;margin-top:6px"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="resetCats()">Reset to Default</button>
+      <button class="btn-primary" onclick="closeCatsModal()">Done</button>
+    </div>
+  </div>
+</div>
+
+<div id="loan-modal" class="modal-bg hidden">
+  <div class="modal-sheet">
+    <div class="modal-title">💳 Log Loan Payment</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:10px" id="loan-modal-sub"></p>
+    <input type="hidden" id="loan-pay-name">
+    <input type="hidden" id="loan-pay-outstanding">
+    <div class="field-row"><input type="number" id="loan-pay-amt" step="0.01" placeholder="Amount paid ₵"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="saveLoanPayment()">Log Payment</button>
+      <button class="btn-ghost" onclick="closeLoanModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -664,6 +683,11 @@ const CATS={
   income:["Salary / Wages","Business Revenue","Freelance / Side Hustle","Investment Return","Gift Received","Debt Recovery","Other Income"],
   transfer:["Wallet Move"], lend:["Loan Given Out"], repay:["Loan Repayment"]
 };
+const CAT_KEY='hub_finapp_cats';
+const DEFAULT_EXPENSE_CATS=[...CATS.expense];
+const savedCats=JSON.parse(localStorage.getItem(CAT_KEY));
+if(savedCats&&savedCats.length)CATS.expense=savedCats;
+const saveCatsStore=()=>localStorage.setItem(CAT_KEY,JSON.stringify(CATS.expense));
 const getWalletColors=()=>Object.fromEntries(walletsDb.map(w=>[w.name,w.color]));
 const WALLET_COLORS_STATIC={MoMo:'#6366F1',Stanbic:'#818CF8',Ecobank:'#10B981',Cash:'#F59E0B',Other:'#0EA5E9'};
 const CAT_COLORS=['#6366F1','#8B5CF6','#EC4899','#F59E0B','#10B981','#3B82F6','#EF4444','#14B8A6','#F97316','#A855F7','#06B6D4','#84CC16'];
@@ -687,7 +711,7 @@ function showScreen(name){
   document.getElementById('nav-'+name).classList.add('active');
   currentScreen=name;
   if(name==='overview')renderOverview();
-  if(name==='goals'){renderDailyTracker();renderBudgets();renderRecurring();}
+  if(name==='goals'){renderDailyTracker();renderBudgets();}
   if(name==='wallets')renderWallets();
 }
 
@@ -914,7 +938,7 @@ function renderBenefitsList(){
   renderBenefitQuickPicks();
 }
 
-function deleteBenefit(id){fbDb=fbDb.filter(x=>x.id!==id);saveFb();renderBenefitsList();toast('Removed');}
+function deleteBenefit(id){if(!confirm('Delete this benefit record?'))return;fbDb=fbDb.filter(x=>x.id!==id);saveFb();renderBenefitsList();toast('Removed');}
 
 function openLimitModal(){
   document.getElementById('limit-input').value=dailyLimits[ymKey(viewDate)]||'';
@@ -990,8 +1014,46 @@ function renderDailyTracker(){
   }).join('');
 }
 
-function openBudgetModal(){document.getElementById('budget-modal').classList.remove('hidden');document.getElementById('b-cat').value='';document.getElementById('b-limit').value='';}
+function openBudgetModal(){
+  const sel=document.getElementById('b-cat');
+  sel.innerHTML='<option value="">— Select Category —</option>'+CATS.expense.map(c=>`<option>${esc(c)}</option>`).join('');
+  document.getElementById('budget-modal').classList.remove('hidden');
+  document.getElementById('b-limit').value='';
+}
 function closeBudgetModal(){document.getElementById('budget-modal').classList.add('hidden');}
+
+function openCatsModal(){renderCatsMgr();document.getElementById('cats-modal').classList.remove('hidden');}
+function closeCatsModal(){document.getElementById('cats-modal').classList.add('hidden');}
+
+function renderCatsMgr(){
+  document.getElementById('cats-list').innerHTML=CATS.expense.map(c=>`<div class="wallet-mgr-row"><div style="flex:1;font-size:13px;font-weight:600">${esc(c)}</div><button class="btn-danger" onclick="removeCat('${esc(c)}')">✕</button></div>`).join('');
+}
+
+function refreshCatsEverywhere(){
+  buildCatDrop(document.getElementById('f-type').value);
+  if(!document.getElementById('edit-modal').classList.contains('hidden'))buildEditCatDrop(document.getElementById('edit-type').value);
+}
+
+function addCat(){
+  const input=document.getElementById('new-cat-input');
+  const name=input.value.trim();
+  if(!name){toast('Enter a category name');return;}
+  if(CATS.expense.includes(name)){toast('That category already exists');return;}
+  CATS.expense.push(name);
+  saveCatsStore();input.value='';renderCatsMgr();refreshCatsEverywhere();toast('Category added ✓');
+}
+
+function removeCat(name){
+  if(!confirm(`Remove "${name}"? It won't show up when logging expenses or setting budgets. Past records keep it.`))return;
+  CATS.expense=CATS.expense.filter(c=>c!==name);
+  saveCatsStore();renderCatsMgr();refreshCatsEverywhere();toast('Removed');
+}
+
+function resetCats(){
+  if(!confirm('Reset to the default category list?'))return;
+  CATS.expense=[...DEFAULT_EXPENSE_CATS];
+  saveCatsStore();renderCatsMgr();refreshCatsEverywhere();toast('Reset ✓');
+}
 
 function saveBudget(){
   const cat=document.getElementById('b-cat').value;
@@ -1002,7 +1064,7 @@ function saveBudget(){
   saveBudgets();closeBudgetModal();renderBudgets();toast('Budget set ✓');
 }
 
-function deleteBudget(cat){budgetsDb=budgetsDb.filter(b=>b.cat!==cat);saveBudgets();renderBudgets();}
+function deleteBudget(cat){if(!confirm(`Remove the budget limit for "${cat}"?`))return;budgetsDb=budgetsDb.filter(b=>b.cat!==cat);saveBudgets();renderBudgets();toast('Removed');}
 
 function renderBudgets(){
   document.getElementById('budget-month-label').innerText='· '+viewDate.toLocaleString('default',{month:'short',year:'numeric'});
@@ -1088,12 +1150,27 @@ function renderWallets(){
   document.getElementById('loans-total').innerText=fmt(totalLoans);
   if(!outstanding.length){loansEl.innerHTML='';loansEmpty.classList.remove('hidden');return;}
   loansEmpty.classList.add('hidden');
-  loansEl.innerHTML=outstanding.map(([name,amt])=>`<div class="loan-row"><div><div style="font-size:13px;font-weight:600">${esc(name)}</div><div style="font-size:10px;color:var(--muted)">Outstanding</div></div><div style="display:flex;align-items:center;gap:10px"><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);font-weight:500">${fmt(amt)}</div><button class="btn-ghost" style="font-size:10px;padding:6px 10px" onclick="markRepaid('${esc(name)}',${amt})">Repaid</button></div></div>`).join('');
+  loansEl.innerHTML=outstanding.map(([name,amt])=>`<div class="loan-row"><div><div style="font-size:13px;font-weight:600">${esc(name)}</div><div style="font-size:10px;color:var(--muted)">Outstanding</div></div><div style="display:flex;align-items:center;gap:10px"><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);font-weight:500">${fmt(amt)}</div><button class="btn-ghost" style="font-size:10px;padding:6px 10px" onclick="openLoanPayment('${esc(name)}',${amt})">Log Payment</button></div></div>`).join('');
 }
 
-function markRepaid(name,amt){
+function openLoanPayment(name,outstanding){
+  document.getElementById('loan-pay-name').value=name;
+  document.getElementById('loan-pay-outstanding').value=outstanding;
+  document.getElementById('loan-pay-amt').value=outstanding.toFixed(2);
+  document.getElementById('loan-modal-sub').innerText=`${name} owes ${fmt(outstanding)}. Enter what was actually paid — less than that for a partial payment.`;
+  document.getElementById('loan-modal').classList.remove('hidden');
+}
+function closeLoanModal(){document.getElementById('loan-modal').classList.add('hidden');}
+
+function saveLoanPayment(){
+  const name=document.getElementById('loan-pay-name').value;
+  const outstanding=parseFloat(document.getElementById('loan-pay-outstanding').value);
+  const amt=parseFloat(document.getElementById('loan-pay-amt').value);
+  if(!amt||amt<=0){toast('Enter a valid amount');return;}
+  if(amt>outstanding+0.01&&!confirm(`That's more than the ${fmt(outstanding)} owed. Log it anyway?`))return;
   db.push({id:Date.now(),desc:`REPAY: ${name}`,amt,date:new Date().toISOString().split('T')[0],type:'repay',wallet:'Cash',cat:'Loan Repayment'});
-  save();toast(`Marked ${name} repaid`);
+  save();closeLoanModal();
+  toast(amt>=outstanding-0.01?`${name} fully repaid ✓`:`Logged ${fmt(amt)} partial payment from ${name}`);
 }
 
 function exportJSON(){
@@ -1136,7 +1213,7 @@ function doImport(){
 function renderAll(){
   renderLedger();renderQuick();
   if(currentScreen==='overview')renderOverview();
-  if(currentScreen==='goals'){renderDailyTracker();renderBudgets();renderRecurring();}
+  if(currentScreen==='goals'){renderDailyTracker();renderBudgets();}
   if(currentScreen==='wallets')renderWallets();
 }
 
@@ -1209,7 +1286,8 @@ function addWallet(){
 
 function removeWallet(i){
   const w=walletsDb[i];
-  if(db.some(e=>e.wallet===w.name)){if(!confirm(`"${w.name}" has transactions. Remove anyway?`))return;}
+  const hasTx=db.some(e=>e.wallet===w.name);
+  if(!confirm(hasTx?`"${w.name}" has transactions. Remove it anyway?`:`Remove wallet "${w.name}"?`))return;
   walletsDb.splice(i,1);saveWallets();renderWalletMgr();
   toast(`Removed "${w.name}"`);
 }

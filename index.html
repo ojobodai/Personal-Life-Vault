@@ -42,9 +42,10 @@ nav {
   background: rgba(14,17,28,0.97); backdrop-filter: blur(24px);
   border-top: 1px solid var(--border); display: flex; z-index: 50;
   padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px -12px rgba(0,0,0,0.6);
 }
 .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; cursor: pointer; transition: all 0.2s; border: none; background: none; color: var(--muted); font-family: 'DM Sans', sans-serif; }
-.nav-item.active { color: var(--accent); }
+.nav-item.active { color: var(--accent); transform: translateY(-1px); }
 .nav-item svg { width: 20px; height: 20px; stroke-width: 1.8; }
 .nav-label { font-size: 9px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; }
 .nav-indicator { width: 16px; height: 3px; border-radius: 99px; background: var(--accent); opacity: 0; transition: opacity 0.2s; margin-top: -2px; }
@@ -61,11 +62,12 @@ nav {
 .screen-title { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
 .screen-sub { font-size: 11px; color: var(--muted); font-weight: 500; margin-top: 3px; }
 
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin: 0 16px 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin: 0 16px 12px; box-shadow: 0 8px 24px -12px rgba(0,0,0,0.45); transition: border-color 0.2s; }
 .card-title { font-size: 10px; font-weight: 700; letter-spacing: 0.9px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
 
 .metric-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 10px 16px 14px; }
-.metric-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 12px; cursor: pointer; }
+.metric-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 12px; cursor: pointer; box-shadow: 0 6px 18px -10px rgba(0,0,0,0.4); transition: transform 0.15s, border-color 0.15s; }
+.metric-box:active { transform: scale(0.97); }
 .metric-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); }
 .metric-val { font-size: 15px; font-weight: 800; margin-top: 5px; font-variant-numeric: tabular-nums; transition: filter 0.25s; }
 .metric-val.blurred { filter: blur(6px); }
@@ -78,8 +80,8 @@ select, input[type=text], input[type=number], input[type=date], textarea { width
 select:focus, input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(91,110,245,0.08); }
 select option { background: #1C2235; }
 
-.btn-primary { background: var(--accent); border: none; border-radius: var(--radius-sm); padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; color: white; cursor: pointer; transition: all 0.2s; width: 100%; }
-.btn-primary:hover { background: #6B7EFF; }
+.btn-primary { background: linear-gradient(135deg, #5B6EF5 0%, #7C5CF5 100%); border: none; border-radius: var(--radius-sm); padding: 12px 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700; color: white; cursor: pointer; transition: all 0.2s; width: 100%; box-shadow: 0 6px 16px -6px rgba(91,110,245,0.55); }
+.btn-primary:hover { filter: brightness(1.08); }
 .btn-primary:active { transform: scale(0.98); }
 .btn-ghost { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 14px; font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.2s; }
 .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
@@ -122,7 +124,28 @@ select option { background: #1C2235; }
 .donut-center { position: absolute; text-align: center; pointer-events: none; }
 
 .prog-track { background: var(--surface2); border-radius: 99px; overflow: hidden; height: 8px; }
-.prog-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+.prog-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; background-image: linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0)); }
+
+/* Pace / burndown bar — day-by-day fill tracker */
+.pace-wrap { margin-top: 2px; }
+.pace-stats { display: flex; gap: 8px; margin-bottom: 12px; }
+.pace-stat { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 11px 12px; text-align: center; }
+.pace-stat-label { font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+.pace-stat-val { font-size: 15px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.pace-track { display: flex; gap: 2px; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 4px; }
+.pace-cell { flex: 1; min-width: 3px; height: 34px; border-radius: 4px; background: var(--surface3); position: relative; overflow: hidden; }
+.pace-cell-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; transition: width 0.5s ease; }
+.pace-cell.today { box-shadow: 0 0 0 2px var(--text) inset; }
+.pace-cell.today::after { content: ''; position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--text); }
+.pace-legend { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 9px; color: var(--muted); font-weight: 600; }
+.pace-legend .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.pace-msg { font-size: 11px; font-weight: 600; margin-top: 10px; padding: 10px 12px; border-radius: 12px; line-height: 1.5; }
+.pace-msg.good { background: rgba(16,185,129,0.1); color: var(--green); border: 1px solid rgba(16,185,129,0.18); }
+.pace-msg.bad { background: rgba(244,63,94,0.1); color: var(--red); border: 1px solid rgba(244,63,94,0.18); }
+.pace-msg.neutral { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+.mini-pace { display: flex; gap: 2px; margin-top: 8px; height: 16px; }
+.mini-pace .pace-cell { height: 16px; border-radius: 3px; }
+.mini-pace .pace-cell.today::after { width: 3px; height: 3px; }
 
 .goal-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px; }
 .wallet-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
@@ -483,26 +506,30 @@ select option { background: #1C2235; }
         </div>
       </div>
       <div class="empty hidden" id="limit-empty">Set a daily spending limit to start tracking — e.g. ₵20/day</div>
-      <div id="limit-content">
-        <div style="display:flex;gap:10px;margin-bottom:14px">
-          <div style="flex:1;background:var(--surface2);border-radius:14px;padding:12px;text-align:center">
-            <div style="font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Daily Limit</div>
-            <div style="font-size:16px;font-weight:800;margin-top:4px" id="limit-daily-val">₵0.00</div>
+      <div id="limit-content" class="pace-wrap">
+        <div class="pace-stats">
+          <div class="pace-stat">
+            <div class="pace-stat-label">Daily Limit</div>
+            <div class="pace-stat-val" id="limit-daily-val">₵0.00</div>
           </div>
-          <div style="flex:1;background:var(--surface2);border-radius:14px;padding:12px;text-align:center">
-            <div style="font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px" id="limit-balance-label">Balance</div>
-            <div style="font-size:16px;font-weight:800;margin-top:4px" id="limit-balance-val">₵0.00</div>
+          <div class="pace-stat">
+            <div class="pace-stat-label" id="limit-balance-label">Balance</div>
+            <div class="pace-stat-val" id="limit-balance-val">₵0.00</div>
+          </div>
+          <div class="pace-stat">
+            <div class="pace-stat-label">Today</div>
+            <div class="pace-stat-val" id="limit-today-val">Day 0/0</div>
           </div>
         </div>
         <div id="limit-excluded-note" style="font-size:9px;color:var(--muted);margin-bottom:8px"></div>
-        <div id="limit-message" style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5"></div>
-        <div style="overflow-x:auto;scrollbar-width:thin;padding-bottom:2px">
-          <div id="limit-bars" style="display:flex;align-items:flex-end;gap:5px;height:104px;min-width:max-content"></div>
+        <div class="pace-track" id="limit-bars"></div>
+        <div class="pace-legend">
+          <span><span class="dot" style="background:var(--green)"></span>on pace</span>
+          <span id="limit-days-left">— days left</span>
+          <span><span class="dot" style="background:var(--red)"></span>behind pace</span>
         </div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px">
-          <span style="font-size:8px;color:var(--muted)">green = under limit · red = over limit</span>
-          <span style="font-size:8px;color:var(--muted)">dashed line = daily limit</span>
-        </div>
+        <div style="text-align:center;font-size:8px;color:var(--muted);margin-top:4px">ring = today &nbsp;·&nbsp; fill = budget used so far</div>
+        <div id="limit-message" class="pace-msg neutral"></div>
       </div>
     </div>
 
@@ -971,6 +998,32 @@ function saveDailyLimit(){
   saveDailyLimitsStore();closeLimitModal();renderDailyTracker();toast('Daily limit saved ✓');
 }
 
+// Builds a segmented "pace track" of day-cells that fill up cumulatively — once one
+// day's slice is full, the fill spills into the next day's slice. Comparing the fill's
+// leading edge against the "today" ring shows whether spending is ahead of or behind
+// the actual calendar date.
+function buildPaceTrack(days, limit, todayDay, cellClass){
+  let cumFillDays=0;
+  const cells=days.map(x=>{
+    if(!x.isFuture)cumFillDays+=(x.spent/limit);
+    return x;
+  });
+  const behindPace = todayDay>0 && cumFillDays>todayDay;
+  const html=cells.map(x=>{
+    const idx=x.d;
+    let fillPct=0;
+    if(!x.isFuture){
+      if(idx<=Math.floor(cumFillDays))fillPct=100;
+      else if(idx===Math.floor(cumFillDays)+1)fillPct=Math.max(0,Math.min(100,Math.round((cumFillDays-Math.floor(cumFillDays))*100)));
+    }
+    const isToday=idx===todayDay;
+    const color=behindPace?'var(--red)':'var(--green)';
+    const tip=x.isFuture?`Day ${idx} · upcoming`:`Day ${idx}: ${fmt(x.spent)} spent`;
+    return `<div class="${cellClass||'pace-cell'} ${isToday?'today':''}" title="${tip}"><div class="pace-cell-fill" style="width:${fillPct}%;background:${color}"></div></div>`;
+  }).join('');
+  return {html,cumFillDays,behindPace};
+}
+
 function renderDailyTracker(){
   document.getElementById('limit-month-label').innerText='· '+viewDate.toLocaleString('default',{month:'short',year:'numeric'});
   const limit=dailyLimits[ymKey(viewDate)];
@@ -985,6 +1038,7 @@ function renderDailyTracker(){
   const isCurrentMonth=today.getFullYear()===y&&today.getMonth()===m;
   const isFutureMonth=new Date(y,m,1)>new Date(today.getFullYear(),today.getMonth(),1);
   const lastDay=isFutureMonth?0:(isCurrentMonth?today.getDate():daysInMonth);
+  const todayDay=isCurrentMonth?today.getDate():0;
 
   let running=0,days=[];
   for(let d=1;d<=daysInMonth;d++){
@@ -1003,35 +1057,40 @@ function renderDailyTracker(){
   balEl.innerText=(running>=0?'+':'−')+fmt(Math.abs(running));
   balEl.style.color=running>=0?'var(--green)':'var(--red)';
   balLabel.innerText=running>=0?'Banked Extra':'Over Budget';
+  document.getElementById('limit-today-val').innerText=todayDay?`Day ${todayDay}/${daysInMonth}`:(isFutureMonth?'Not started':`Day ${daysInMonth}/${daysInMonth}`);
+  document.getElementById('limit-days-left').innerText=isFutureMonth?`${daysInMonth} days left`:`${Math.max(0,daysInMonth-lastDay)} days left`;
+
+  const {html,cumFillDays,behindPace}=buildPaceTrack(days,limit,todayDay);
+  document.getElementById('limit-bars').innerHTML=isFutureMonth
+    ? days.map(x=>`<div class="pace-cell" title="Day ${x.d} · upcoming"></div>`).join('')
+    : html;
 
   const msgEl=document.getElementById('limit-message');
+  const paceDiff=todayDay-cumFillDays;
   if(isFutureMonth){
+    msgEl.className='pace-msg neutral';
     msgEl.innerText=`This month hasn't started yet. Your limit is set to ${fmt(limit)}/day.`;
   } else {
     const remainingDays=daysInMonth-lastDay;
+    let paceLine='';
+    if(lastDay>0){
+      paceLine = paceDiff>=0.05
+        ? `You've used ${cumFillDays.toFixed(1)} of ${todayDay||daysInMonth} days' worth of budget — ${paceDiff.toFixed(1)} day${paceDiff>=1.05?'s':''} banked ahead of today. `
+        : paceDiff<=-0.05
+          ? `You've used ${cumFillDays.toFixed(1)} of ${todayDay||daysInMonth} days' worth of budget — ${Math.abs(paceDiff).toFixed(1)} day${Math.abs(paceDiff)>=1.05?'s':''} behind pace. `
+          : `You're spending right on pace with today's date. `;
+    }
     if(remainingDays>0){
       const safePerDay=(limit*remainingDays+running)/remainingDays;
-      msgEl.innerHTML=safePerDay>=0
-        ? `You can spend up to <strong style="color:var(--text)">${fmt(safePerDay)}/day</strong> for the remaining ${remainingDays} day${remainingDays>1?'s':''} and stay on target.`
-        : `You're over budget — even spending ₵0 for the remaining ${remainingDays} day${remainingDays>1?'s':''} won't fully recover it. Try to cut back where you can.`;
+      msgEl.className='pace-msg '+(safePerDay>=0?'good':'bad');
+      msgEl.innerHTML=paceLine+(safePerDay>=0
+        ? `You can spend up to <strong style="color:inherit">${fmt(safePerDay)}/day</strong> for the remaining ${remainingDays} day${remainingDays>1?'s':''} and stay on target.`
+        : `Even spending ₵0 for the remaining ${remainingDays} day${remainingDays>1?'s':''} won't fully recover it — try to cut back where you can.`);
     } else {
-      msgEl.innerText=running>=0?`🎉 You finished the month ${fmt(running)} under budget.`:`You went ${fmt(Math.abs(running))} over budget this month.`;
+      msgEl.className='pace-msg '+(running>=0?'good':'bad');
+      msgEl.innerText=(running>=0?`🎉 You finished the month ${fmt(running)} under budget.`:`You went ${fmt(Math.abs(running))} over budget this month.`);
     }
   }
-
-  const maxVal=Math.max(limit,...days.map(x=>x.spent),1)*1.15;
-  document.getElementById('limit-bars').innerHTML=days.map(x=>{
-    const barH=Math.max(3,(x.spent/maxVal)*88);
-    const limitH=(limit/maxVal)*88;
-    const color=x.isFuture?'rgba(255,255,255,0.06)':(x.spent<=limit?'var(--green)':'var(--red)');
-    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;width:16px">
-      <div style="position:relative;height:88px;width:10px;display:flex;align-items:flex-end">
-        <div style="position:absolute;bottom:${limitH}px;left:-3px;right:-3px;border-top:1px dashed rgba(255,255,255,0.28)"></div>
-        <div style="width:100%;height:${barH}px;background:${color};border-radius:3px 3px 0 0;transition:height .3s" title="Day ${x.d}: ${fmt(x.spent)} (limit ${fmt(limit)})"></div>
-      </div>
-      <span style="font-size:7px;color:var(--muted)">${x.d}</span>
-    </div>`;
-  }).join('');
 }
 
 function openBudgetModal(){
@@ -1111,12 +1170,37 @@ function renderBudgets(){
   const e=document.getElementById('budget-empty');
   if(!budgetsDb.length){c.innerHTML='';e.classList.remove('hidden');return;}
   e.classList.add('hidden');
+
+  const y=viewDate.getFullYear(),m=viewDate.getMonth();
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const today=new Date();
+  const isCurrentMonth=today.getFullYear()===y&&today.getMonth()===m;
+  const isFutureMonth=new Date(y,m,1)>new Date(today.getFullYear(),today.getMonth(),1);
+  const lastDay=isFutureMonth?0:(isCurrentMonth?today.getDate():daysInMonth);
+  const todayDay=isCurrentMonth?today.getDate():0;
+
   c.innerHTML=budgetsDb.map(b=>{
     const spent=db.filter(e=>mf(e)&&e.type==='expense'&&!e.isTransfer&&e.cat===b.cat).reduce((s,e)=>s+e.amt,0);
     const pct=Math.min(100,(spent/b.limit)*100);
     const over=spent>b.limit;
     const color=over?'var(--red)':pct>=80?'var(--amber)':'var(--accent)';
-    return `<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-bottom:5px"><span>${esc(b.cat)}</span><div style="display:flex;align-items:center;gap:8px"><span style="color:${over?'var(--red)':'var(--text)'}">${fmt(spent)} / ${fmt(b.limit)}</span>${over?'<span class="tag tag-overdue">over</span>':''}<button onclick="deleteBudget('${esc(b.cat)}')" class="btn-danger">✕</button></div></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+
+    const dailyEquiv=b.limit/daysInMonth;
+    let days=[];
+    for(let d=1;d<=daysInMonth;d++){
+      const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const daySpent=db.filter(e=>e.date===ds&&e.type==='expense'&&!e.isTransfer&&e.cat===b.cat).reduce((s,e)=>s+e.amt,0);
+      days.push({d,spent:daySpent,isFuture:d>lastDay});
+    }
+    const {html,cumFillDays,behindPace}=buildPaceTrack(days,dailyEquiv,todayDay,'pace-cell');
+    const paceHtml=isFutureMonth
+      ? `<div class="mini-pace">${days.map(x=>`<div class="pace-cell" title="Day ${x.d} · upcoming"></div>`).join('')}</div>`
+      : `<div class="mini-pace">${html}</div>`;
+    const paceNote=isFutureMonth?'':(lastDay>0?(behindPace
+      ? `<div style="font-size:8.5px;color:var(--red);margin-top:5px;font-weight:600">⚠ pacing ahead of today by ${(cumFillDays-todayDay).toFixed(1)}d — running hot</div>`
+      : `<div style="font-size:8.5px;color:var(--green);margin-top:5px;font-weight:600">✓ on pace · ${(todayDay-cumFillDays).toFixed(1)}d banked</div>`):'');
+
+    return `<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-bottom:5px"><span>${esc(b.cat)}</span><div style="display:flex;align-items:center;gap:8px"><span style="color:${over?'var(--red)':'var(--text)'}">${fmt(spent)} / ${fmt(b.limit)}</span>${over?'<span class="tag tag-overdue">over</span>':''}<button onclick="deleteBudget('${esc(b.cat)}')" class="btn-danger">✕</button></div></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>${paceHtml}${paceNote}</div>`;
   }).join('');
 }
 

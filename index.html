@@ -147,6 +147,10 @@ select option { background: #1C2235; }
 .pace-cell-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; transition: width 0.5s ease; }
 .pace-cell.today { box-shadow: 0 0 0 2px var(--text) inset; }
 .pace-cell.today::after { content: ''; position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--text); }
+.today-progress-wrap { margin-bottom: 14px; }
+.today-progress-label { display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+.today-progress-track { height: 12px; border-radius: 7px; background: var(--surface3); overflow: hidden; }
+.today-progress-fill { height: 100%; border-radius: 7px; transition: width 0.4s ease, background 0.3s ease; }
 .pace-track-wrap { position: relative; padding-top: 18px; }
 .pace-today-flag { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 2; transition: left 0.4s ease; }
 .pace-today-flag .flag-label { font-size: 7px; font-weight: 800; letter-spacing: 0.4px; color: var(--bg); background: var(--text); padding: 2px 6px; border-radius: 5px; white-space: nowrap; }
@@ -542,6 +546,10 @@ select option { background: #1C2235; }
           </div>
         </div>
         <div id="limit-excluded-note" style="font-size:9px;color:var(--muted);margin-bottom:8px"></div>
+        <div class="today-progress-wrap" id="today-progress-wrap">
+          <div class="today-progress-label"><span id="today-progress-title">Today's Spending</span><span id="today-progress-text">₵0.00 / ₵0.00</span></div>
+          <div class="today-progress-track"><div class="today-progress-fill" id="today-progress-fill" style="width:0%"></div></div>
+        </div>
         <div class="pace-track-wrap">
           <div class="pace-today-flag" id="limit-today-flag" style="left:0%"><span class="flag-label">TODAY</span><span class="flag-arrow"></span></div>
           <div class="pace-track" id="limit-bars"></div>
@@ -585,6 +593,7 @@ select option { background: #1C2235; }
     <div class="nw-sub">+ loans owed to you</div>
   </div>
   </div>
+  <div style="margin:0 16px 12px;text-align:center;font-size:11px;font-weight:600" id="nw-6m-change">—</div>
 
     <div class="card">
       <div class="card-title">Wallet Balances</div>
@@ -707,13 +716,14 @@ select option { background: #1C2235; }
 
 <div id="loan-modal" class="modal-bg hidden">
   <div class="modal-sheet">
-    <div class="modal-title">💳 Log Loan Payment</div>
+    <div class="modal-title">💳 Debt Paid</div>
     <p style="font-size:11px;color:var(--muted);margin-bottom:10px" id="loan-modal-sub"></p>
     <input type="hidden" id="loan-pay-name">
     <input type="hidden" id="loan-pay-outstanding">
     <div class="field-row"><input type="number" id="loan-pay-amt" step="0.01" placeholder="Amount paid ₵"></div>
+    <div class="field-row"><select id="loan-pay-wallet"></select></div>
     <div class="modal-actions">
-      <button class="btn-primary" onclick="saveLoanPayment()">Log Payment</button>
+      <button class="btn-primary" onclick="saveLoanPayment()">Debt Paid</button>
       <button class="btn-ghost" onclick="closeLoanModal()">Cancel</button>
     </div>
   </div>
@@ -760,7 +770,7 @@ const getWalletColors=()=>Object.fromEntries(walletsDb.map(w=>[w.name,w.color]))
 const WALLET_COLORS_STATIC={MoMo:'#6366F1',Stanbic:'#818CF8',Ecobank:'#10B981',Cash:'#F59E0B',Other:'#0EA5E9'};
 const CAT_COLORS=['#6366F1','#8B5CF6','#EC4899','#F59E0B','#10B981','#3B82F6','#EF4444','#14B8A6','#F97316','#A855F7','#06B6D4','#84CC16'];
 
-const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const fmt=n=>'₵'+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const save=()=>{localStorage.setItem(DB_KEY,JSON.stringify(db));renderAll();};
 const saveFb=()=>localStorage.setItem(FB_KEY,JSON.stringify(fbDb));
@@ -768,6 +778,27 @@ const saveDailyLimitsStore=()=>localStorage.setItem(DAILY_LIMIT_KEY,JSON.stringi
 const saveBudgets=()=>localStorage.setItem(BUDGETS_KEY,JSON.stringify(budgetsDb));
 const saveQuick=()=>localStorage.setItem(QUICK_KEY,JSON.stringify(quickDb));
 const mf=e=>{const[ey,em]=e.date.split('-');return parseInt(em)-1===viewDate.getMonth()&&parseInt(ey)===viewDate.getFullYear();};
+
+// Builds { borrowerName: outstandingAmount } from a set of ledger entries.
+// Uses EXACT (trimmed) name matching — not substring matching — so that a payment
+// or a debt cancellation can never accidentally land on the wrong borrower just
+// because one name happens to contain another (e.g. "Mensah" vs "Kwame Mensah").
+function buildLoanMap(entries){
+  const loanMap={};
+  entries.filter(e=>e.type==='lend').forEach(e=>{const k=e.desc.replace(/^LENT:\s*/i,'').trim();loanMap[k]=(loanMap[k]||0)+e.amt;});
+  entries.filter(e=>e.type==='repay').forEach(e=>{const k=e.desc.replace(/^REPAY:\s*/i,'').trim();if(Object.prototype.hasOwnProperty.call(loanMap,k))loanMap[k]-=e.amt;});
+  entries.filter(e=>e.type==='writeoff').forEach(e=>{const k=e.desc.replace(/^WRITEOFF:\s*/i,'').trim();if(Object.prototype.hasOwnProperty.call(loanMap,k))loanMap[k]-=e.amt;});
+  return loanMap;
+}
+
+// Net worth = cash across all wallets + outstanding loans owed to you (an asset).
+// Passing a date-filtered slice of entries lets us reconstruct net worth "as of" any past date.
+function computeNetWorth(entries){
+  const totalBal=entries.reduce((s,e)=>{if(e.type==='income'||e.type==='repay')return s+e.amt;if(e.type==='expense'||e.type==='lend')return s-e.amt;return s;},0);
+  const loanMap=buildLoanMap(entries);
+  const totalLoans=Object.values(loanMap).filter(v=>v>0.01).reduce((s,v)=>s+v,0);
+  return {totalBal,totalLoans,netWorth:totalBal+totalLoans};
+}
 const ymKey=d=>`${d.getFullYear()}-${d.getMonth()}`;
 
 function toast(msg){const t=document.getElementById('toast');t.innerText=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
@@ -840,7 +871,7 @@ function learnQuick(cat,desc,amt,type,wallet){
 function renderQuick(){
   const row=document.getElementById('quick-row');
   if(!quickDb.length){row.innerHTML='';return;}
-  row.innerHTML=quickDb.slice(0,6).map(q=>`<div class="quick-chip" onclick="quickAdd('${esc(q.key)}')">${esc(q.desc)} · ${fmt(q.amt)}</div>`).join('');
+  row.innerHTML=quickDb.slice(0,6).map(q=>`<div class="quick-chip" data-key="${esc(q.key)}" onclick="quickAdd(this.dataset.key)">${esc(q.desc)} · ${fmt(q.amt)}</div>`).join('');
 }
 
 function quickAdd(key){
@@ -1074,6 +1105,26 @@ function renderDailyTracker(){
 
   document.getElementById('limit-excluded-note').innerText=excludedDailyCats.length?`Not counted: ${excludedDailyCats.join(', ')}`:'';
 
+  // Today's own spend-vs-limit — separate from the monthly pace track below.
+  // Once today's spending reaches or passes the daily limit, the bar shows FULL and red,
+  // no matter how far past the limit it goes, so being over is always unmistakable.
+  const todayWrap=document.getElementById('today-progress-wrap');
+  if(todayDay>0){
+    todayWrap.style.display='block';
+    const todaySpent=days.find(x=>x.d===todayDay)?.spent||0;
+    const overToday=todaySpent>limit+0.01;
+    const todayPct=Math.min(100,(todaySpent/limit)*100);
+    const fillEl=document.getElementById('today-progress-fill');
+    fillEl.style.width=todayPct+'%';
+    fillEl.style.background=overToday?'var(--red)':(todayPct>=80?'var(--amber)':'var(--green)');
+    document.getElementById('today-progress-title').innerText=overToday?'Today · Over Limit':"Today's Spending";
+    document.getElementById('today-progress-text').innerText=overToday
+      ? `${fmt(todaySpent)} / ${fmt(limit)}  (+${fmt(todaySpent-limit)} over)`
+      : `${fmt(todaySpent)} / ${fmt(limit)}`;
+  } else {
+    todayWrap.style.display='none';
+  }
+
   document.getElementById('limit-daily-val').innerText=fmt(limit);
   const balEl=document.getElementById('limit-balance-val');
   const balLabel=document.getElementById('limit-balance-label');
@@ -1135,7 +1186,7 @@ function openCatsModal(){renderCatsMgr();document.getElementById('cats-modal').c
 function closeCatsModal(){document.getElementById('cats-modal').classList.add('hidden');}
 
 function renderCatsMgr(){
-  document.getElementById('cats-list').innerHTML=CATS.expense.map(c=>`<div class="wallet-mgr-row"><div style="flex:1;font-size:13px;font-weight:600">${esc(c)}</div><button class="btn-danger" onclick="removeCat('${esc(c)}')">✕</button></div>`).join('');
+  document.getElementById('cats-list').innerHTML=CATS.expense.map(c=>`<div class="wallet-mgr-row"><div style="flex:1;font-size:13px;font-weight:600">${esc(c)}</div><button class="btn-danger" data-cat="${esc(c)}" onclick="removeCat(this.dataset.cat)">✕</button></div>`).join('');
 }
 
 function refreshCatsEverywhere(){
@@ -1231,7 +1282,7 @@ function renderBudgets(){
       ? `<div style="font-size:8.5px;color:var(--red);margin-top:5px;font-weight:600">⚠ pacing ahead of today by ${(cumFillDays-todayDay).toFixed(1)}d — running hot</div>`
       : `<div style="font-size:8.5px;color:var(--green);margin-top:5px;font-weight:600">✓ on pace · ${(todayDay-cumFillDays).toFixed(1)}d banked</div>`):'');
 
-    return `<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-bottom:5px"><span>${esc(b.cat)}</span><div style="display:flex;align-items:center;gap:8px"><span style="color:${over?'var(--red)':'var(--text)'}">${fmt(spent)} / ${fmt(b.limit)}</span>${over?'<span class="tag tag-overdue">over</span>':''}<button onclick="deleteBudget('${esc(b.cat)}')" class="btn-danger">✕</button></div></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>${paceHtml}${paceNote}</div>`;
+    return `<div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;margin-bottom:5px"><span>${esc(b.cat)}</span><div style="display:flex;align-items:center;gap:8px"><span style="color:${over?'var(--red)':'var(--text)'}">${fmt(spent)} / ${fmt(b.limit)}</span>${over?'<span class="tag tag-overdue">over</span>':''}<button data-cat="${esc(b.cat)}" onclick="deleteBudget(this.dataset.cat)" class="btn-danger">✕</button></div></div><div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>${paceHtml}${paceNote}</div>`;
   }).join('');
 }
 
@@ -1262,10 +1313,7 @@ function renderWallets(){
   const WALLET_COLORS=getWalletColors();
   const wallets=walletsDb.map(w=>w.name);
   const balances=wallets.map(w=>({name:w,bal:db.filter(e=>e.wallet===w).reduce((s,e)=>{if(e.type==='income'||e.type==='repay')return s+e.amt;if(e.type==='expense'||e.type==='lend')return s-e.amt;return s;},0)}));
-  const loanMap={};
-  db.filter(e=>e.type==='lend').forEach(e=>{const k=e.desc.replace(/^LENT:\s*/i,'');loanMap[k]=(loanMap[k]||0)+e.amt;});
-  db.filter(e=>e.type==='repay').forEach(e=>{const k=e.desc.replace(/^REPAY:\s*/i,'');const match=Object.keys(loanMap).find(kk=>k.includes(kk)||kk.includes(k));if(match)loanMap[match]-=e.amt;});
-  db.filter(e=>e.type==='writeoff').forEach(e=>{const k=e.desc.replace(/^WRITEOFF:\s*/i,'');const match=Object.keys(loanMap).find(kk=>k.includes(kk)||kk.includes(k));if(match)loanMap[match]-=e.amt;});
+  const loanMap=buildLoanMap(db);
   const outstanding=Object.entries(loanMap).filter(([,v])=>v>0.01);
   const totalLoans=outstanding.reduce((s,[,v])=>s+v,0);
   const totalBal=balances.reduce((s,b)=>s+b.bal,0);
@@ -1303,16 +1351,40 @@ function renderWallets(){
   const loansEl=document.getElementById('loans-list');
   const loansEmpty=document.getElementById('loans-empty');
   document.getElementById('loans-total').innerText=fmt(totalLoans);
-  if(!outstanding.length){loansEl.innerHTML='';loansEmpty.classList.remove('hidden');return;}
+  if(!outstanding.length){loansEl.innerHTML='';loansEmpty.classList.remove('hidden');}
+  else{
   loansEmpty.classList.add('hidden');
-  loansEl.innerHTML=outstanding.map(([name,amt])=>`<div class="loan-row"><div><div style="font-size:13px;font-weight:600">${esc(name)}</div><div style="font-size:10px;color:var(--muted)">Outstanding</div></div><div style="display:flex;align-items:center;gap:8px"><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);font-weight:500">${fmt(amt)}</div><button class="btn-ghost" style="font-size:10px;padding:6px 9px" onclick="openLoanPayment('${esc(name)}',${amt})">Log Payment</button><button class="btn-ghost" style="font-size:10px;padding:6px 9px;color:rgba(244,63,94,0.7);border-color:rgba(244,63,94,0.18)" onclick="cancelDebt('${esc(name)}',${amt})">Cancel Debt</button></div></div>`).join('');
+  loansEl.innerHTML=outstanding.map(([name,amt])=>`<div class="loan-row"><div><div style="font-size:13px;font-weight:600">${esc(name)}</div><div style="font-size:10px;color:var(--muted)">Outstanding</div></div><div style="display:flex;align-items:center;gap:8px"><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);font-weight:500">${fmt(amt)}</div><button class="btn-ghost" style="font-size:10px;padding:6px 9px" data-name="${esc(name)}" data-amt="${amt}" onclick="openLoanPayment(this.dataset.name,parseFloat(this.dataset.amt))">Debt Paid</button><button class="btn-ghost" style="font-size:10px;padding:6px 9px;color:rgba(244,63,94,0.7);border-color:rgba(244,63,94,0.18)" data-name="${esc(name)}" data-amt="${amt}" onclick="cancelDebt(this.dataset.name,parseFloat(this.dataset.amt))">Cancel</button></div></div>`).join('');
+  }
+
+  render6MonthChange();
+}
+
+// 6-month net worth comparison: reconstructs net worth from entries dated on/before
+// the cutoff (6 calendar months ago) and compares it to the live net worth right now.
+function render6MonthChange(){
+  const el=document.getElementById('nw-6m-change');
+  if(!el)return;
+  const cutoff=new Date();
+  cutoff.setMonth(cutoff.getMonth()-6);
+  const cutoffStr=cutoff.toISOString().split('T')[0];
+  const pastEntries=db.filter(e=>e.date<=cutoffStr);
+  const nowEntries=db.filter(e=>e.date<=new Date().toISOString().split('T')[0]);
+  if(!pastEntries.length){el.innerText='Not enough history yet (6+ months of records needed)';el.style.color='var(--muted)';return;}
+  const past=computeNetWorth(pastEntries).netWorth;
+  const now=computeNetWorth(nowEntries).netWorth;
+  const diff=now-past;
+  const pct=past!==0?(diff/Math.abs(past)*100):(now!==0?100:0);
+  const sign=diff>=0?'+':'−';
+  el.innerText=`${sign}${fmt(Math.abs(diff))} (${sign}${Math.abs(pct).toFixed(1)}%) vs 6 months ago`;
+  el.style.color=diff>=0?'var(--green)':'var(--red)';
 }
 
 function openLoanPayment(name,outstanding){
   document.getElementById('loan-pay-name').value=name;
   document.getElementById('loan-pay-outstanding').value=outstanding;
   document.getElementById('loan-pay-amt').value=outstanding.toFixed(2);
-  document.getElementById('loan-modal-sub').innerText=`${name} owes ${fmt(outstanding)}. Enter what was actually paid — less than that for a partial payment.`;
+  document.getElementById('loan-modal-sub').innerText=`${name} owes ${fmt(outstanding)}. Defaults to a full payment — lower the amount for a partial payment. This adds the money to the wallet you pick below.`;
   document.getElementById('loan-modal').classList.remove('hidden');
 }
 function closeLoanModal(){document.getElementById('loan-modal').classList.add('hidden');}
@@ -1321,17 +1393,18 @@ function saveLoanPayment(){
   const name=document.getElementById('loan-pay-name').value;
   const outstanding=parseFloat(document.getElementById('loan-pay-outstanding').value);
   const amt=parseFloat(document.getElementById('loan-pay-amt').value);
+  const wallet=document.getElementById('loan-pay-wallet').value;
   if(!amt||amt<=0){toast('Enter a valid amount');return;}
   if(amt>outstanding+0.01&&!confirm(`That's more than the ${fmt(outstanding)} owed. Log it anyway?`))return;
-  db.push({id:Date.now(),desc:`REPAY: ${name}`,amt,date:new Date().toISOString().split('T')[0],type:'repay',wallet:'Cash',cat:'Loan Repayment'});
+  db.push({id:Date.now(),desc:`REPAY: ${name}`,amt,date:new Date().toISOString().split('T')[0],type:'repay',wallet,cat:'Loan Repayment'});
   save();closeLoanModal();
   toast(amt>=outstanding-0.01?`${name} fully repaid ✓`:`Logged ${fmt(amt)} partial payment from ${name}`);
 }
 
 function cancelDebt(name,outstanding){
-  if(!confirm(`Cancel ${fmt(outstanding)} owed by ${name}? This writes off the debt as unpaid — it won't add money to any wallet, it just clears it from Outstanding Loans.`))return;
+  if(!confirm(`Cancel ${fmt(outstanding)} owed by ${name}? This means you're treating it as money you will not collect. It won't add anything to any wallet — it just removes it from Outstanding Loans, which lowers your Net Worth by ${fmt(outstanding)}.`))return;
   db.push({id:Date.now(),desc:`WRITEOFF: ${name}`,amt:outstanding,date:new Date().toISOString().split('T')[0],type:'writeoff',wallet:'Cash',cat:'Loan Write-off'});
-  save();toast(`${name}'s debt cancelled`);
+  save();toast(`${name}'s debt cancelled — net worth reduced by ${fmt(outstanding)}`);
 }
 
 function exportJSON(){
@@ -1386,7 +1459,7 @@ function saveWallets(){localStorage.setItem(WALLET_KEY,JSON.stringify(walletsDb)
 
 function rebuildWalletDropdowns(){
   const names=walletsDb.map(w=>w.name);
-  ['f-wallet','edit-wallet'].forEach(id=>{
+  ['f-wallet','edit-wallet','loan-pay-wallet'].forEach(id=>{
     const sel=document.getElementById(id);if(!sel)return;
     const prev=sel.value;
     sel.innerHTML=names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');

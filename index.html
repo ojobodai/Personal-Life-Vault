@@ -596,6 +596,15 @@ select option { background: #1C2235; }
   <div style="margin:0 16px 12px;text-align:center;font-size:11px;font-weight:600" id="nw-6m-change">—</div>
 
     <div class="card">
+      <div class="card-title">
+        <span>📈 Net Worth Over Time</span>
+        <span style="font-size:9px;color:var(--muted)">last 6 months</span>
+      </div>
+      <svg id="nw-trend-svg" viewBox="0 0 300 120" style="width:100%;height:120px;display:block"></svg>
+      <div style="font-size:8px;color:var(--muted);text-align:center;margin-top:2px">Months before your first record are shown as ₵0</div>
+    </div>
+
+    <div class="card">
       <div class="card-title">Wallet Balances</div>
       <div id="wallet-list"></div>
     </div>
@@ -1362,6 +1371,8 @@ function renderWallets(){
 
 // 6-month net worth comparison: reconstructs net worth from entries dated on/before
 // the cutoff (6 calendar months ago) and compares it to the live net worth right now.
+// If the user hasn't been tracking for 6 months yet, there's simply no entries before
+// the cutoff, so computeNetWorth naturally returns ₵0 for that point — no special-casing needed.
 function render6MonthChange(){
   const el=document.getElementById('nw-6m-change');
   if(!el)return;
@@ -1370,14 +1381,73 @@ function render6MonthChange(){
   const cutoffStr=cutoff.toISOString().split('T')[0];
   const pastEntries=db.filter(e=>e.date<=cutoffStr);
   const nowEntries=db.filter(e=>e.date<=new Date().toISOString().split('T')[0]);
-  if(!pastEntries.length){el.innerText='Not enough history yet (6+ months of records needed)';el.style.color='var(--muted)';return;}
+  renderNetWorthTrend();
+  if(!nowEntries.length){el.innerText='Add some records to see your net worth change';el.style.color='var(--muted)';return;}
   const past=computeNetWorth(pastEntries).netWorth;
   const now=computeNetWorth(nowEntries).netWorth;
   const diff=now-past;
   const pct=past!==0?(diff/Math.abs(past)*100):(now!==0?100:0);
   const sign=diff>=0?'+':'−';
-  el.innerText=`${sign}${fmt(Math.abs(diff))} (${sign}${Math.abs(pct).toFixed(1)}%) vs 6 months ago`;
+  const partialNote=pastEntries.length?'':' (from ₵0 — you have under 6 months of history)';
+  el.innerText=`${sign}${fmt(Math.abs(diff))} (${sign}${Math.abs(pct).toFixed(1)}%) vs 6 months ago${partialNote}`;
   el.style.color=diff>=0?'var(--green)':'var(--red)';
+}
+
+// Builds one net-worth data point per month for the last 6 months. Each point is
+// net worth reconstructed as of that month's end (or "now" for the current month)
+// from every ledger entry dated on/before that point. Months that fall before the
+// user's very first record naturally come out to ₵0 (computeNetWorth on an empty
+// slice returns 0) — so partial history is imputed as ₵0 automatically, no special-casing.
+function computeNetWorthTrendPoints(){
+  const now=new Date();
+  const todayStr=now.toISOString().split('T')[0];
+  const points=[];
+  for(let i=5;i>=0;i--){
+    const monthStart=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const isCurrentMonth=i===0;
+    const cutoff=isCurrentMonth?now:new Date(monthStart.getFullYear(),monthStart.getMonth()+1,0);
+    const cutoffStr=(isCurrentMonth?todayStr:cutoff.toISOString().split('T')[0]);
+    const entries=db.filter(e=>e.date<=cutoffStr);
+    points.push({label:monthStart.toLocaleString('default',{month:'short'}),value:computeNetWorth(entries).netWorth});
+  }
+  return points;
+}
+
+// Renders the Net Worth Over Time card as a simple SVG line + area chart.
+function renderNetWorthTrend(){
+  const svg=document.getElementById('nw-trend-svg');
+  if(!svg)return;
+  const points=computeNetWorthTrendPoints();
+  const W=300,H=120,padL=8,padR=8,padT=14,padB=20;
+  const vals=points.map(p=>p.value);
+  let min=Math.min(0,...vals),max=Math.max(0,...vals);
+  if(min===max){min-=1;max+=1;}
+  const range=max-min;
+  const innerW=W-padL-padR,innerH=H-padT-padB;
+  const stepX=points.length>1?innerW/(points.length-1):0;
+  const xAt=i=>padL+stepX*i;
+  const yAt=v=>padT+innerH*(1-(v-min)/range);
+  const zeroY=yAt(0);
+  const trendUp=points[points.length-1].value>=points[0].value;
+  const color=trendUp?'#10B981':'#F43F5E';
+  const linePts=points.map((p,i)=>`${xAt(i).toFixed(1)},${yAt(p.value).toFixed(1)}`).join(' ');
+  const areaPts=`${xAt(0).toFixed(1)},${zeroY.toFixed(1)} ${linePts} ${xAt(points.length-1).toFixed(1)},${zeroY.toFixed(1)}`;
+  const dots=points.map((p,i)=>`<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(p.value).toFixed(1)}" r="2.8" fill="${color}"><title>${esc(p.label)}: ${(p.value<0?'−':'')+fmt(p.value)}</title></circle>`).join('');
+  const labels=points.map((p,i)=>`<text x="${xAt(i).toFixed(1)}" y="${H-4}" font-size="7" fill="#4A5568" text-anchor="middle" font-weight="700">${esc(p.label)}</text>`).join('');
+  const zeroLine=(min<0&&max>0)?`<line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${W-padR}" y2="${zeroY.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="2,2"/>`:'';
+  svg.innerHTML=`
+    <defs>
+      <linearGradient id="nwTrendGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${color}" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${areaPts}" fill="url(#nwTrendGrad)"/>
+    ${zeroLine}
+    <polyline points="${linePts}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+    ${labels}
+  `;
 }
 
 function openLoanPayment(name,outstanding){
